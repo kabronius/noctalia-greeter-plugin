@@ -1,0 +1,91 @@
+{
+  "bar": {
+    "tooltip": "Impostazioni del greeter"
+  },
+  "panel": {
+    "title": "Impostazioni del greeter",
+    "default": "Predefinito",
+    "none": "Nessuno",
+    "all_outputs": "Tutti i monitor",
+    "sections": {
+      "login": "Accesso",
+      "appearance": "Aspetto",
+      "wallpaper": "Sfondo",
+      "clock": "Orologio",
+      "outputs": "Monitor",
+      "input": "Tastiera e cursore"
+    },
+    "fields": {
+      "session": "Sessione predefinita",
+      "user": "Utente predefinito",
+      "scheme": "Schema colori",
+      "theme_mode": "Modalità tema",
+      "password_style": "Maschera password",
+      "hide_logo": "Nascondi il logo di Noctalia",
+      "power_buttons": "Pulsanti di spegnimento",
+      "scheme_selector": "Selettore di schemi",
+      "font_family": "Font",
+      "corner_radius": "Arrotondamento angoli: {value}",
+      "wallpaper_path": "Percorso dell'immagine",
+      "wallpaper_fill": "Adattamento",
+      "wallpaper_color": "Colore di riempimento (#RRGGBB)",
+      "clock_enabled": "Mostra l'orologio",
+      "clock_position": "Posizione",
+      "time_format": "Formato dell'ora",
+      "date_format": "Formato della data",
+      "output_name": "Mostra il login su",
+      "idle": "Spegni gli schermi dopo: {value}",
+      "idle_off": "mai",
+      "cursor_theme": "Tema del cursore",
+      "cursor_size": "Dimensione del cursore",
+      "keyboard_layout": "Layout di tastiera",
+      "keyboard_variant": "Variante",
+      "numlock": "Bloc Num attivo"
+    },
+    "hints": {
+      "synced": "\"Synced\" usa i colori copiati da Noctalia con Impostazioni → Security → Greeter → Sync Now.",
+      "wallpaper": "Vuoto = sfondo sincronizzato. Le immagini fuori dalla cartella del greeter vengono copiate lì al salvataggio.",
+      "formats": "strftime (%H:%M) o {:%H:%M}; vuoto nasconde la riga.",
+      "preview": "L'anteprima usa le modifiche non salvate; colori e sfondo sincronizzati non ci sono."
+    },
+    "actions": {
+      "save": "Salva",
+      "preview": "Anteprima",
+      "stop_preview": "Chiudi anteprima",
+      "import": "Importa la configurazione attuale",
+      "revert": "Annulla modifiche"
+    },
+    "status": {
+      "loading": "Caricamento…",
+      "not_imported": "Il greeter.toml attuale non è ancora stato letto. Importalo per conservarne i valori (password di amministratore).",
+      "imported": "Configurazione attuale importata.",
+      "no_file": "Nessun greeter.toml installato: si parte dai valori predefiniti.",
+      "import_failed": "Impossibile leggere greeter.toml: {error}",
+      "unsaved": "Modifiche non salvate.",
+      "saved": "Salvato. Il greeter lo usa dalla prossima schermata di login.",
+      "saving": "In attesa dell'approvazione dell'amministratore…",
+      "save_failed": "Salvataggio non riuscito: {error}",
+      "invalid": "Il file generato non è TOML valido: {error}",
+      "preview_running": "Anteprima aperta in una finestra.",
+      "preview_failed": "Impossibile avviare l'anteprima: {error}",
+      "missing_greeter": "Noctalia Greeter non trovato in {dir}."
+    }
+  },
+  "settings": {
+    "glyph": {
+      "label": "Icona"
+    },
+    "greeter_bin_dir": {
+      "label": "Programmi del greeter",
+      "description": "Cartella con noctalia-greeter e noctalia-greeter-compositor"
+    },
+    "state_dir": {
+      "label": "Cartella di stato del greeter",
+      "description": "Cartella che contiene greeter.toml"
+    },
+    "privilege_command": {
+      "label": "Comando di privilegio",
+      "description": "Esegue lettura e installazione come root (parole separate da spazi)"
+    }
+  }
+}

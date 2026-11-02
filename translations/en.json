@@ -1,0 +1,91 @@
+{
+  "bar": {
+    "tooltip": "Greeter settings"
+  },
+  "panel": {
+    "title": "Greeter Settings",
+    "default": "Default",
+    "none": "None",
+    "all_outputs": "All monitors",
+    "sections": {
+      "login": "Login",
+      "appearance": "Appearance",
+      "wallpaper": "Wallpaper",
+      "clock": "Clock",
+      "outputs": "Monitors",
+      "input": "Keyboard and cursor"
+    },
+    "fields": {
+      "session": "Default session",
+      "user": "Default user",
+      "scheme": "Color scheme",
+      "theme_mode": "Theme mode",
+      "password_style": "Password mask",
+      "hide_logo": "Hide Noctalia logo",
+      "power_buttons": "Power buttons",
+      "scheme_selector": "Scheme selector",
+      "font_family": "Font family",
+      "corner_radius": "Corner radius scale: {value}",
+      "wallpaper_path": "Image path",
+      "wallpaper_fill": "Fill mode",
+      "wallpaper_color": "Fill color (#RRGGBB)",
+      "clock_enabled": "Show clock",
+      "clock_position": "Position",
+      "time_format": "Time format",
+      "date_format": "Date format",
+      "output_name": "Show login on",
+      "idle": "Blank screens after: {value}",
+      "idle_off": "never",
+      "cursor_theme": "Cursor theme",
+      "cursor_size": "Cursor size",
+      "keyboard_layout": "Keyboard layout",
+      "keyboard_variant": "Variant",
+      "numlock": "Num Lock on"
+    },
+    "hints": {
+      "synced": "\"Synced\" uses the colors copied from Noctalia with Settings → Security → Greeter → Sync Now.",
+      "wallpaper": "Leave empty to use the synced wallpaper. Images outside the greeter directory are copied there on save.",
+      "formats": "strftime (%H:%M) or {:%H:%M}; empty hides the line.",
+      "preview": "The preview reads unsaved changes; synced colors and wallpaper are not available in it."
+    },
+    "actions": {
+      "save": "Save",
+      "preview": "Preview",
+      "stop_preview": "Close preview",
+      "import": "Import current configuration",
+      "revert": "Discard changes"
+    },
+    "status": {
+      "loading": "Loading…",
+      "not_imported": "The current greeter.toml has not been read yet. Import it to keep its values (administrator password).",
+      "imported": "Current configuration imported.",
+      "no_file": "No greeter.toml installed yet: starting from defaults.",
+      "import_failed": "Could not read greeter.toml: {error}",
+      "unsaved": "Unsaved changes.",
+      "saved": "Saved. The greeter uses it from the next login screen.",
+      "saving": "Waiting for administrator approval…",
+      "save_failed": "Save failed: {error}",
+      "invalid": "Generated file is not valid TOML: {error}",
+      "preview_running": "Preview running in a window.",
+      "preview_failed": "Preview could not start: {error}",
+      "missing_greeter": "Noctalia Greeter not found in {dir}."
+    }
+  },
+  "settings": {
+    "glyph": {
+      "label": "Glyph"
+    },
+    "greeter_bin_dir": {
+      "label": "Greeter binaries",
+      "description": "Directory with noctalia-greeter and noctalia-greeter-compositor"
+    },
+    "state_dir": {
+      "label": "Greeter state directory",
+      "description": "Directory holding greeter.toml"
+    },
+    "privilege_command": {
+      "label": "Privilege command",
+      "description": "Runs the read and install steps as root (words split on spaces)"
+    }
+  }
+}

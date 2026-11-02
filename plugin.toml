@@ -1,0 +1,58 @@
+# Settings panel for Noctalia Greeter: edits /var/lib/noctalia-greeter/greeter.toml.
+#
+# The panel keeps a working copy in the plugin data dir, rewrites only the keys it manages
+# (other lines, comments and sections are preserved), validates the result with Python's
+# tomllib, and installs it through pkexec. A nested preview runs the greeter compositor
+# against a temporary copy, so changes can be checked before saving.
+
+id = "kabronius/greeter-settings"
+name = "Greeter Settings"
+version = "1.0.0"
+plugin_api = 27
+author = "kabronius"
+license = "Apache-2.0"
+dependencies = []
+tags = ["greeter", "login", "settings", "system"]
+icon = "login"
+description = "Configure Noctalia Greeter (greeter.toml) from a panel: session, user, appearance, clock, outputs, keyboard and cursor."
+
+[[setting]]
+key = "greeter_bin_dir"
+type = "string"
+label_key = "settings.greeter_bin_dir.label"
+description_key = "settings.greeter_bin_dir.description"
+default = "/opt/noctalia-greeter/bin"
+
+[[setting]]
+key = "state_dir"
+type = "string"
+label_key = "settings.state_dir.label"
+description_key = "settings.state_dir.description"
+default = "/var/lib/noctalia-greeter"
+
+[[setting]]
+key = "privilege_command"
+type = "string"
+label_key = "settings.privilege_command.label"
+description_key = "settings.privilege_command.description"
+default = "pkexec"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  default = "login"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 560
+height = 760
+placement = "floating"
+position = "center"
+# The pkexec dialog appears while a save is pending; keep the panel (and its callback) alive.
+dismiss_on_outside_click = false
