@@ -5,6 +5,8 @@ A [Noctalia Shell](https://github.com/noctalia-dev/noctalia) plugin that edits t
 user, color scheme and appearance, wallpaper, clock, monitors, keyboard and cursor. A nested preview
 shows the login screen with the unsaved changes.
 
+![Greeter Settings panel, Appearance section](docs/panel.png)
+
 The panel follows the layout of Noctalia's settings window: a sidebar with six sections (Login,
 Appearance, Wallpaper, Clock, Monitors, Keyboard and cursor) and one row per setting, with the name and
 a short explanation on the left and the control on the right. Every menu starts with **Default**, which
@@ -20,56 +22,6 @@ else lives in `greeter.toml`, which normally needs a text editor and root.
 | Plugin API | 27 (Noctalia Shell 5.0.1 or newer) |
 | Edits | `/var/lib/noctalia-greeter/greeter.toml` |
 | License | Apache-2.0 |
-
-## How it works
-
-`/var/lib/noctalia-greeter` belongs to greetd's session user (`_greetd` on Ubuntu, `greeter` on most
-other distributions) and is not readable by the desktop user. The panel therefore works on a copy in
-the plugin data directory (`~/.local/state/noctalia/plugins/data/kabronius/greeter-settings/`).
-
-```mermaid
-flowchart LR
-  installed["/var/lib/noctalia-greeter/greeter.toml"] -- "Import (pkexec cat)" --> copy["working copy"]
-  copy -- "panel edits" --> pending["greeter.toml.new"]
-  pending -- "tomllib check" --> pending
-  pending -- "Save (pkexec install)" --> installed
-  copy -- "Preview" --> preview["preview/greeter.toml"] --> nested["noctalia-greeter-compositor<br/>nested in the session"]
-```
-
-| Step | What happens |
-| --- | --- |
-| Import | One privileged `cat` of the installed file, started automatically the first time the panel opens. Until it succeeds the controls stay disabled, so a save can never overwrite a file the panel has not read. |
-| Edit | Each control maps to one `key = value` line. **Default** removes the key, so the greeter's built-in default applies. |
-| Save | The copy is rewritten, parsed with Python's `tomllib` (a malformed file never reaches the login screen), then one privileged shell installs it with the state directory's owner and mode `0640`, keeping the previous file as `greeter.toml.bak`. |
-| Wallpaper | The path can be typed or taken from the wallpaper Noctalia currently shows on the focused monitor. greetd's user cannot read `$HOME`, so an image outside the state directory is copied there as `wallpaper-custom.<ext>` during the same save. |
-| Preview | Writes the unsaved settings to a temporary directory and runs `noctalia-greeter-compositor` as a window in the current Wayland session with `NOCTALIA_GREETER_STATE_DIR` pointing there. It cannot log in (no greetd socket) and does not see the synced palette or wallpaper. |
-
-### What the panel changes in `greeter.toml`
-
-`greeter_toml.luau` edits the file line by line. It reads and writes only `key = scalar` lines in the
-sections below; comments, `[appearance.palette]`, per-output wallpapers, inline tables and any other
-key are written back unchanged. Managed sections left without keys are removed, and section headers
-are separated by one blank line.
-
-| Section | Keys |
-| --- | --- |
-| `[session]`, `[user]` | `default` (lists from `noctalia-greeter sessions` and `/etc/passwd`, UID 1000–59999 with a login shell) |
-| `[appearance]` | `scheme`, `theme_mode`, `password_style`, `hide_logo`, `power_buttons_position`, `scheme_selector_position`, `font_family`, `corner_radius_scale` |
-| `[appearance.wallpaper]` | `path`, `fill_mode`, `fill_color` |
-| `[clock]` | `enabled`, `position`, `time_format`, `date_format` |
-| `[output]` | `name` (list from `noctalia-greeter outputs`) |
-| `[idle]` | `timeout` |
-| `[cursor]` | `theme` (themes with a `cursors/` directory), `size` |
-| `[keyboard]` | `layout`, `variant`, `numlock` |
-
-A value the lists do not contain, for example one written by hand, is shown as an extra entry instead
-of being dropped. Keys for multi-monitor layout, scales, transforms, refresh rate and authentication
-are left to hand editing; see the greeter's
-[configuration reference](https://docs.noctalia.dev/greeter/configuration/).
-
-Settings take effect the next time the login screen starts. Output, keyboard, cursor and idle settings
-are read by the compositor, so they need a greetd restart, which also ends the running session; a
-reboot or logout is the usual way.
 
 ## Installation
 

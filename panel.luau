@@ -303,7 +303,17 @@ function onRevert()
   render()
 end
 
-function onPreview()
+-- The preview can also end on its own (timeout, window closed): ask the system.
+local function refreshPreviewState(after)
+  noctalia.processMatches(function(matched)
+    previewRunning = matched
+    if after then
+      after()
+    end
+  end, BIN .. "/noctalia-greeter-compositor", "--")
+end
+
+local function togglePreview()
   if previewRunning then
     noctalia.runAsync({ "pkill", "-u", USER, "-f", BIN .. "/noctalia-greeter-compositor" })
     previewRunning = false
@@ -330,6 +340,10 @@ function onPreview()
   previewRunning = started
   setStatus(started and T("status.preview_running") or T("status.preview_failed", { error = "runAsync" }), not started)
   render()
+end
+
+function onPreview()
+  refreshPreviewState(togglePreview)
 end
 
 function onClose()
@@ -687,6 +701,9 @@ end
 function onOpen(_context)
   loadWorkingCopy()
   loadLists()
+  refreshPreviewState(function()
+    render()
+  end)
   if not noctalia.fileExists(BIN .. "/noctalia-greeter") then
     setStatus(T("status.missing_greeter", { dir = BIN }), true)
   elseif not imported and not importAttempted then
