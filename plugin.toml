@@ -50,8 +50,8 @@ entry = "bar.luau"
 [[panel]]
 id = "panel"
 entry = "panel.luau"
-width = 560
-height = 760
+width = 900
+height = 620
 placement = "floating"
 position = "center"
 # The pkexec dialog appears while a save is pending; keep the panel (and its callback) alive.

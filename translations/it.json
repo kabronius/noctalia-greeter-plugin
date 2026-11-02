@@ -25,7 +25,7 @@
       "power_buttons": "Pulsanti di spegnimento",
       "scheme_selector": "Selettore di schemi",
       "font_family": "Font",
-      "corner_radius": "Arrotondamento angoli: {value}",
+      "corner_radius": "Arrotondamento angoli",
       "wallpaper_path": "Percorso dell'immagine",
       "wallpaper_fill": "Adattamento",
       "wallpaper_color": "Colore di riempimento (#RRGGBB)",
@@ -34,7 +34,7 @@
       "time_format": "Formato dell'ora",
       "date_format": "Formato della data",
       "output_name": "Mostra il login su",
-      "idle": "Spegni gli schermi dopo: {value}",
+      "idle": "Spegni gli schermi dopo",
       "idle_off": "mai",
       "cursor_theme": "Tema del cursore",
       "cursor_size": "Dimensione del cursore",
@@ -46,14 +46,21 @@
       "synced": "\"Synced\" usa i colori copiati da Noctalia con Impostazioni → Security → Greeter → Sync Now.",
       "wallpaper": "Vuoto = sfondo sincronizzato. Le immagini fuori dalla cartella del greeter vengono copiate lì al salvataggio.",
       "formats": "strftime (%H:%M) o {:%H:%M}; vuoto nasconde la riga.",
-      "preview": "L'anteprima usa le modifiche non salvate; colori e sfondo sincronizzati non ci sono."
+      "preview": "L'anteprima usa le modifiche non salvate; colori e sfondo sincronizzati non ci sono.",
+      "session": "Sessione scelta quando si apre il login.",
+      "user": "Salta l'elenco utenti e apre subito la password.",
+      "font": "Nome fontconfig; vuoto lascia il font sincronizzato o integrato.",
+      "color": "Colore di sfondo senza immagine, o attorno a un'immagine adattata.",
+      "output": "Predefinito mostra il login su tutti i monitor.",
+      "layout": "Layout XKB separati da virgole (us,it)."
     },
     "actions": {
       "save": "Salva",
       "preview": "Anteprima",
       "stop_preview": "Chiudi anteprima",
       "import": "Importa la configurazione attuale",
-      "revert": "Annulla modifiche"
+      "revert": "Annulla modifiche",
+      "current_wallpaper": "Usa lo sfondo attuale"
     },
     "status": {
       "loading": "Caricamento…",
@@ -69,6 +76,41 @@
       "preview_running": "Anteprima aperta in una finestra.",
       "preview_failed": "Impossibile avviare l'anteprima: {error}",
       "missing_greeter": "Noctalia Greeter non trovato in {dir}."
+    },
+    "default_with": "Predefinito ({value})",
+    "values": {
+      "password": {
+        "default": "Puntini",
+        "random": "Forme casuali"
+      },
+      "theme": {
+        "dark": "Scuro",
+        "light": "Chiaro"
+      },
+      "corner": {
+        "bottom-right": "In basso a destra",
+        "bottom-left": "In basso a sinistra",
+        "top-left": "In alto a sinistra",
+        "top-right": "In alto a destra",
+        "hidden": "Nascosto"
+      },
+      "clock": {
+        "above-panel": "Sopra il riquadro di login",
+        "top-left": "In alto a sinistra",
+        "top-center": "In alto al centro",
+        "top-right": "In alto a destra",
+        "bottom-left": "In basso a sinistra",
+        "bottom-center": "In basso al centro",
+        "bottom-right": "In basso a destra"
+      },
+      "fill": {
+        "crop": "Riempi (ritaglia)",
+        "fit": "Adatta",
+        "center": "Centra",
+        "stretch": "Allunga",
+        "repeat": "Affianca",
+        "span": "Su tutti i monitor"
+      }
     }
   },
   "settings": {

@@ -25,7 +25,7 @@
       "power_buttons": "Power buttons",
       "scheme_selector": "Scheme selector",
       "font_family": "Font family",
-      "corner_radius": "Corner radius scale: {value}",
+      "corner_radius": "Corner radius",
       "wallpaper_path": "Image path",
       "wallpaper_fill": "Fill mode",
       "wallpaper_color": "Fill color (#RRGGBB)",
@@ -34,7 +34,7 @@
       "time_format": "Time format",
       "date_format": "Date format",
       "output_name": "Show login on",
-      "idle": "Blank screens after: {value}",
+      "idle": "Blank screens after",
       "idle_off": "never",
       "cursor_theme": "Cursor theme",
       "cursor_size": "Cursor size",
@@ -46,14 +46,21 @@
       "synced": "\"Synced\" uses the colors copied from Noctalia with Settings → Security → Greeter → Sync Now.",
       "wallpaper": "Leave empty to use the synced wallpaper. Images outside the greeter directory are copied there on save.",
       "formats": "strftime (%H:%M) or {:%H:%M}; empty hides the line.",
-      "preview": "The preview reads unsaved changes; synced colors and wallpaper are not available in it."
+      "preview": "The preview reads unsaved changes; synced colors and wallpaper are not available in it.",
+      "session": "Session selected when the login screen opens.",
+      "user": "Skips the user list and opens the password field.",
+      "font": "Fontconfig family; empty keeps the synced or built-in font.",
+      "color": "Background color when no image is set, or around a fitted image.",
+      "output": "Default shows the login on every monitor.",
+      "layout": "XKB layouts, comma-separated (us,it)."
     },
     "actions": {
       "save": "Save",
       "preview": "Preview",
       "stop_preview": "Close preview",
       "import": "Import current configuration",
-      "revert": "Discard changes"
+      "revert": "Discard changes",
+      "current_wallpaper": "Use the current wallpaper"
     },
     "status": {
       "loading": "Loading…",
@@ -69,6 +76,41 @@
       "preview_running": "Preview running in a window.",
       "preview_failed": "Preview could not start: {error}",
       "missing_greeter": "Noctalia Greeter not found in {dir}."
+    },
+    "default_with": "Default ({value})",
+    "values": {
+      "password": {
+        "default": "Dots",
+        "random": "Random shapes"
+      },
+      "theme": {
+        "dark": "Dark",
+        "light": "Light"
+      },
+      "corner": {
+        "bottom-right": "Bottom right",
+        "bottom-left": "Bottom left",
+        "top-left": "Top left",
+        "top-right": "Top right",
+        "hidden": "Hidden"
+      },
+      "clock": {
+        "above-panel": "Above the login box",
+        "top-left": "Top left",
+        "top-center": "Top center",
+        "top-right": "Top right",
+        "bottom-left": "Bottom left",
+        "bottom-center": "Bottom center",
+        "bottom-right": "Bottom right"
+      },
+      "fill": {
+        "crop": "Fill (crop)",
+        "fit": "Fit",
+        "center": "Center",
+        "stretch": "Stretch",
+        "repeat": "Tile",
+        "span": "Span across monitors"
+      }
     }
   },
   "settings": {

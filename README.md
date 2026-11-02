@@ -5,6 +5,11 @@ A [Noctalia Shell](https://github.com/noctalia-dev/noctalia) plugin that edits t
 user, color scheme and appearance, wallpaper, clock, monitors, keyboard and cursor. A nested preview
 shows the login screen with the unsaved changes.
 
+The panel follows the layout of Noctalia's settings window: a sidebar with six sections (Login,
+Appearance, Wallpaper, Clock, Monitors, Keyboard and cursor) and one row per setting, with the name and
+a short explanation on the left and the control on the right. Every menu starts with **Default**, which
+names the greeter's built-in value where it is known (for example *Default (Bottom right)*).
+
 Noctalia Shell itself only offers **Sync Now** (wallpaper, palette, font, monitor layout). Everything
 else lives in `greeter.toml`, which normally needs a text editor and root.
 
@@ -33,10 +38,10 @@ flowchart LR
 
 | Step | What happens |
 | --- | --- |
-| Import | One privileged `cat` of the installed file. Until then the controls stay disabled, so a save can never overwrite a file the panel has not read. |
+| Import | One privileged `cat` of the installed file, started automatically the first time the panel opens. Until it succeeds the controls stay disabled, so a save can never overwrite a file the panel has not read. |
 | Edit | Each control maps to one `key = value` line. **Default** removes the key, so the greeter's built-in default applies. |
 | Save | The copy is rewritten, parsed with Python's `tomllib` (a malformed file never reaches the login screen), then one privileged shell installs it with the state directory's owner and mode `0640`, keeping the previous file as `greeter.toml.bak`. |
-| Wallpaper | greetd's user cannot read `$HOME`, so an image outside the state directory is copied there as `wallpaper-custom.<ext>` during the same save. |
+| Wallpaper | The path can be typed or taken from the wallpaper Noctalia currently shows on the focused monitor. greetd's user cannot read `$HOME`, so an image outside the state directory is copied there as `wallpaper-custom.<ext>` during the same save. |
 | Preview | Writes the unsaved settings to a temporary directory and runs `noctalia-greeter-compositor` as a window in the current Wayland session with `NOCTALIA_GREETER_STATE_DIR` pointing there. It cannot log in (no greetd socket) and does not see the synced palette or wallpaper. |
 
 ### What the panel changes in `greeter.toml`
@@ -97,6 +102,7 @@ The open panel accepts commands, useful for scripts:
 
 ```sh
 P=kabronius/greeter-settings:panel
+noctalia msg plugin $P all section clock                   # login, appearance, wallpaper, clock, outputs, input
 noctalia msg plugin $P all import
 noctalia msg plugin $P all set clock.position=top-center   # "key=" removes the key
 noctalia msg plugin $P all set appearance.hide_logo=true
@@ -119,12 +125,15 @@ document it prints last can be checked with `python3 -c "import tomllib, sys; to
 Checked with Noctalia Shell 5.0.1 and Noctalia Greeter 1.7.0 on Ubuntu 24.04:
 
 - module tests: 20/20;
-- panel loads, lists sessions, users, outputs and cursor themes, and renders imported values;
+- panel loads, lists sessions, users, outputs and cursor themes, and renders imported values in all
+  six sections;
+- import of the installed `/var/lib/noctalia-greeter/greeter.toml` through `pkexec` and the Noctalia
+  Polkit agent;
 - import, edit and save through IPC against a test state directory (`privilege_command = env`): keys
   replaced, removed and added, palette and comments preserved, `greeter.toml.bak` kept, result valid
   TOML with mode `0640`;
 - preview window reflects unsaved changes (clock position, hidden logo, default session) and closes
   on the second request.
 
-Not exercised against `/var/lib/noctalia-greeter` with `pkexec` in this test run: that path differs
-only by the privilege prefix.
+Not exercised: a save into `/var/lib/noctalia-greeter` through `pkexec` (the install step was tested
+with `privilege_command = env` only), and the current-wallpaper button.

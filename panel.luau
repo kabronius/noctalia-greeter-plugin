@@ -338,6 +338,10 @@ end
 
 -- ── UI ───────────────────────────────────────────────────────────────────────────────
 
+local currentSection = 1
+local importAttempted = false
+local CONTROL_WIDTH = 300
+
 local function change(section, key, value)
   values[id(section, key)] = value
   dirty = true
@@ -345,31 +349,56 @@ local function change(section, key, value)
   render()
 end
 
-local function label(text, color)
-  return ui.label({ text = text, color = color or "on_surface_variant", maxLines = 3 })
-end
-
-local function section(title, children)
-  local body = { ui.label({ text = title, fontSize = 15, fontWeight = "semibold", color = "primary" }) }
-  for _, child in ipairs(children) do
-    table.insert(body, child)
+local function markDirty()
+  dirty = true
+  if status ~= T("status.unsaved") then
+    setStatus(T("status.unsaved"))
+    render()
   end
-  return ui.column({ gap = 10, padding = 12, radius = 12, fill = "surface_variant" }, body)
 end
 
-local function field(text, control)
-  return ui.column({ gap = 6 }, { ui.label({ text = text, color = "on_surface" }), control })
+-- Translated label for a TOML value; falls back to the raw value.
+local function valueLabel(group, value)
+  if group == nil then
+    return tostring(value)
+  end
+  local key = `panel.values.{group}.{tostring(value)}`
+  local text = noctalia.tr(key)
+  return (text ~= "" and text ~= key) and text or tostring(value)
 end
 
--- Select with a leading "Default" entry that removes the key. A value missing from
--- `choices` (set by hand) is kept as an extra option instead of being dropped.
-local function selectField(text, section, key, choices, display)
+local function defaultLabel(group, builtin)
+  if builtin == nil then
+    return T("default")
+  end
+  return T("default_with", { value = valueLabel(group, builtin) })
+end
+
+-- One setting: title and optional description on the left, control on the right.
+local function row(title, description, control)
+  local text = { ui.label({ text = title, color = "on_surface", fontWeight = "medium" }) }
+  if description ~= nil then
+    table.insert(text, ui.label({ text = description, color = "on_surface_variant", fontSize = 12, maxLines = 3 }))
+  end
+  return ui.row({ gap = 16, align = "center", paddingV = 4 }, {
+    ui.column({ gap = 2, flexGrow = 1 }, text),
+    ui.column({ width = CONTROL_WIDTH }, { control }),
+  })
+end
+
+local function editable()
+  return imported and not busy
+end
+
+-- Select whose first entry ("Default") removes the key. A value missing from `choices`
+-- (written by hand) is kept as an extra entry instead of being dropped.
+local function selectRow(title, description, section, key, choices, group, builtin)
   local current = values[id(section, key)]
-  local options = { T("default") }
+  local options = { defaultLabel(group, builtin) }
   local keys = { false }
   local selected = 0
   for _, choice in ipairs(choices) do
-    table.insert(options, display and display(choice) or tostring(choice))
+    table.insert(options, valueLabel(group, choice))
     table.insert(keys, choice)
     if current ~= nil and tostring(choice) == tostring(current) then
       selected = #options - 1
@@ -380,11 +409,11 @@ local function selectField(text, section, key, choices, display)
     table.insert(keys, current)
     selected = #options - 1
   end
-  return field(text, ui.select({
+  return row(title, description, ui.select({
     key = `select-{section}-{key}`,
     options = options,
     selectedIndex = selected,
-    enabled = imported and not busy,
+    enabled = editable(),
     onChange = function(index)
       local v = keys[(tonumber(index) or 0) + 1]
       change(section, key, v ~= false and v or nil)
@@ -392,61 +421,44 @@ local function selectField(text, section, key, choices, display)
   }))
 end
 
-local function toggleField(text, section, key, defaultValue)
+local function toggleRow(title, description, section, key, builtin)
   local current = values[id(section, key)]
-  local checked = if current == nil then defaultValue else current == true
-  return ui.row({ gap = 12, align = "center" }, {
-    ui.label({ text = text, color = "on_surface", flexGrow = 1 }),
+  local checked = if current == nil then builtin else current == true
+  return row(title, description, ui.row({ justify = "end" }, {
     ui.toggle({
       checked = checked,
-      enabled = imported and not busy,
+      enabled = editable(),
       onChange = function(v)
         change(section, key, v == "true")
       end,
     }),
-  })
+  }))
 end
 
-local function inputField(text, section, key, placeholder)
+local function inputRow(title, description, section, key, placeholder)
   local current = values[id(section, key)]
-  return field(text, ui.input({
+  return row(title, description, ui.input({
     key = `input-{section}-{key}-{generation}`,
     value = current ~= nil and tostring(current) or "",
     placeholder = placeholder or T("default"),
-    enabled = imported and not busy,
+    enabled = editable(),
     onChange = function(v)
       values[id(section, key)] = v ~= "" and v or nil
-      dirty = true
-      if status ~= T("status.unsaved") then
-        setStatus(T("status.unsaved"))
-        render()
-      end
+      markDirty()
     end,
   }))
 end
 
-local function sliderField(textKey, section, key, min, max, step, format)
+local function sliderRow(title, section, key, min, max, step, format)
   local current = values[id(section, key)]
-  local shown = current ~= nil and format(current) or T("default")
-  return ui.column({ gap = 6 }, {
-    ui.row({ gap = 8, align = "center" }, {
-      ui.label({ text = T(textKey, { value = shown }), color = "on_surface", flexGrow = 1 }),
-      ui.button({
-        text = T("default"),
-        variant = "ghost",
-        controlSize = "sm",
-        enabled = imported and not busy and current ~= nil,
-        onClick = function()
-          change(section, key, nil)
-        end,
-      }),
-    }),
+  return row(title, current ~= nil and format(current) or T("default"), ui.row({ gap = 8, align = "center" }, {
     ui.slider({
+      flexGrow = 1,
       min = min,
       max = max,
       step = step,
       value = current ~= nil and current or min,
-      enabled = imported and not busy,
+      enabled = editable(),
       onChange = function(v)
         values[id(section, key)] = tonumber(v)
         dirty = true
@@ -454,104 +466,202 @@ local function sliderField(textKey, section, key, min, max, step, format)
         render()
       end,
     }),
-  })
+    ui.button({
+      glyph = "arrow-back-up",
+      variant = "ghost",
+      controlSize = "sm",
+      tooltip = T("default"),
+      enabled = editable() and current ~= nil,
+      onClick = function()
+        change(section, key, nil)
+      end,
+    }),
+  }))
 end
 
-local function outputLabel(name)
-  return name
+-- Path input plus a button that takes the wallpaper Noctalia currently shows.
+local function wallpaperRow()
+  local section, key = "appearance.wallpaper", "path"
+  local current = values[id(section, key)]
+  return row(T("fields.wallpaper_path"), T("hints.wallpaper"), ui.row({ gap = 8, align = "center" }, {
+    ui.input({
+      key = `input-{section}-{key}-{generation}`,
+      flexGrow = 1,
+      value = current ~= nil and tostring(current) or "",
+      placeholder = T("default"),
+      enabled = editable(),
+      onChange = function(v)
+        values[id(section, key)] = v ~= "" and v or nil
+        markDirty()
+      end,
+    }),
+    ui.button({
+      glyph = "photo-check",
+      variant = "outline",
+      tooltip = T("actions.current_wallpaper"),
+      enabled = editable(),
+      onClick = function()
+        local output = noctalia.focusedOutputName()
+        local path = output ~= nil and noctalia.wallpaperPath(output) or nil
+        if path ~= nil and path ~= "" then
+          values[id(section, key)] = path
+          generation += 1 -- reseed the uncontrolled input with the new path
+          change(section, key, path)
+        end
+      end,
+    }),
+  }))
 end
+
+local function minutes(v)
+  if v <= 0 then
+    return T("fields.idle_off")
+  end
+  return v >= 60 and string.format("%d min %02d s", v // 60, v % 60) or `{v} s`
+end
+
+local SECTIONS = {
+  {
+    key = "login",
+    glyph = "login",
+    rows = function()
+      return {
+        selectRow(T("fields.session"), T("hints.session"), "session", "default", lists.sessions),
+        selectRow(T("fields.user"), T("hints.user"), "user", "default", lists.users),
+        selectRow(T("fields.password_style"), nil, "appearance", "password_style", lists.passwordStyles, "password", "default"),
+      }
+    end,
+  },
+  {
+    key = "appearance",
+    glyph = "palette",
+    rows = function()
+      return {
+        selectRow(T("fields.scheme"), T("hints.synced"), "appearance", "scheme", lists.schemes),
+        selectRow(T("fields.theme_mode"), nil, "appearance", "theme_mode", lists.themeModes, "theme"),
+        inputRow(T("fields.font_family"), T("hints.font"), "appearance", "font_family", "Noto Sans"),
+        sliderRow(T("fields.corner_radius"), "appearance", "corner_radius_scale", 0, 2, 0.1, function(v)
+          return string.format("%.1f×", v)
+        end),
+        toggleRow(T("fields.hide_logo"), nil, "appearance", "hide_logo", false),
+        selectRow(T("fields.power_buttons"), nil, "appearance", "power_buttons_position", lists.corners, "corner", "bottom-right"),
+        selectRow(T("fields.scheme_selector"), nil, "appearance", "scheme_selector_position", lists.corners, "corner", "top-right"),
+      }
+    end,
+  },
+  {
+    key = "wallpaper",
+    glyph = "photo",
+    rows = function()
+      return {
+        wallpaperRow(),
+        selectRow(T("fields.wallpaper_fill"), nil, "appearance.wallpaper", "fill_mode", lists.fillModes, "fill"),
+        inputRow(T("fields.wallpaper_color"), T("hints.color"), "appearance.wallpaper", "fill_color", "#13140d"),
+      }
+    end,
+  },
+  {
+    key = "clock",
+    glyph = "clock",
+    rows = function()
+      return {
+        toggleRow(T("fields.clock_enabled"), nil, "clock", "enabled", true),
+        selectRow(T("fields.clock_position"), nil, "clock", "position", lists.clockPositions, "clock", "above-panel"),
+        inputRow(T("fields.time_format"), T("hints.formats"), "clock", "time_format", "{:%H:%M}"),
+        inputRow(T("fields.date_format"), nil, "clock", "date_format", "%A, %x"),
+      }
+    end,
+  },
+  {
+    key = "outputs",
+    glyph = "device-desktop",
+    rows = function()
+      return {
+        selectRow(T("fields.output_name"), T("hints.output"), "output", "name", lists.outputs, nil, nil),
+        sliderRow(T("fields.idle"), "idle", "timeout", 0, 1800, 30, minutes),
+      }
+    end,
+  },
+  {
+    key = "input",
+    glyph = "keyboard",
+    rows = function()
+      return {
+        inputRow(T("fields.keyboard_layout"), T("hints.layout"), "keyboard", "layout", "us"),
+        inputRow(T("fields.keyboard_variant"), nil, "keyboard", "variant"),
+        toggleRow(T("fields.numlock"), nil, "keyboard", "numlock", false),
+        selectRow(T("fields.cursor_theme"), nil, "cursor", "theme", lists.cursors),
+        selectRow(T("fields.cursor_size"), nil, "cursor", "size", lists.cursorSizes),
+      }
+    end,
+  },
+}
 
 render = function()
-  local outputs = {}
-  for _, o in ipairs(lists.outputs) do
-    table.insert(outputs, o)
+  local nav = {}
+  for index, section in ipairs(SECTIONS) do
+    table.insert(nav, ui.button({
+      text = T(`sections.{section.key}`),
+      glyph = section.glyph,
+      variant = "ghost",
+      contentAlign = "start",
+      selected = index == currentSection,
+      onClick = function()
+        currentSection = index
+        render()
+      end,
+    }))
   end
+  table.insert(nav, ui.spacer({ flexGrow = 1 }))
+  table.insert(nav, ui.button({
+    text = previewRunning and T("actions.stop_preview") or T("actions.preview"),
+    glyph = previewRunning and "eye-off" or "eye",
+    variant = "outline",
+    tooltip = T("hints.preview"),
+    onClick = onPreview,
+  }))
 
-  local body = {
-    section(T("sections.login"), {
-      selectField(T("fields.session"), "session", "default", lists.sessions),
-      selectField(T("fields.user"), "user", "default", lists.users),
-    }),
-    section(T("sections.appearance"), {
-      selectField(T("fields.scheme"), "appearance", "scheme", lists.schemes),
-      label(T("hints.synced")),
-      selectField(T("fields.theme_mode"), "appearance", "theme_mode", lists.themeModes),
-      selectField(T("fields.password_style"), "appearance", "password_style", lists.passwordStyles),
-      toggleField(T("fields.hide_logo"), "appearance", "hide_logo", false),
-      selectField(T("fields.power_buttons"), "appearance", "power_buttons_position", lists.corners),
-      selectField(T("fields.scheme_selector"), "appearance", "scheme_selector_position", lists.corners),
-      inputField(T("fields.font_family"), "appearance", "font_family"),
-      sliderField("fields.corner_radius", "appearance", "corner_radius_scale", 0, 2, 0.1, function(v)
-        return string.format("%.1f", v)
-      end),
-    }),
-    section(T("sections.wallpaper"), {
-      inputField(T("fields.wallpaper_path"), "appearance.wallpaper", "path", "/path/to/image.jpg"),
-      label(T("hints.wallpaper")),
-      selectField(T("fields.wallpaper_fill"), "appearance.wallpaper", "fill_mode", lists.fillModes),
-      inputField(T("fields.wallpaper_color"), "appearance.wallpaper", "fill_color", "#13140d"),
-    }),
-    section(T("sections.clock"), {
-      toggleField(T("fields.clock_enabled"), "clock", "enabled", true),
-      selectField(T("fields.clock_position"), "clock", "position", lists.clockPositions),
-      inputField(T("fields.time_format"), "clock", "time_format", "{:%H:%M}"),
-      inputField(T("fields.date_format"), "clock", "date_format", "%A, %x"),
-      label(T("hints.formats")),
-    }),
-    section(T("sections.outputs"), {
-      selectField(T("fields.output_name"), "output", "name", outputs, outputLabel),
-      sliderField("fields.idle", "idle", "timeout", 0, 1800, 30, function(v)
-        if v <= 0 then
-          return T("fields.idle_off")
-        end
-        return v >= 60 and string.format("%d min %02d s", v // 60, v % 60) or `{v} s`
-      end),
-    }),
-    section(T("sections.input"), {
-      selectField(T("fields.cursor_theme"), "cursor", "theme", lists.cursors),
-      selectField(T("fields.cursor_size"), "cursor", "size", lists.cursorSizes),
-      inputField(T("fields.keyboard_layout"), "keyboard", "layout", "us"),
-      inputField(T("fields.keyboard_variant"), "keyboard", "variant"),
-      toggleField(T("fields.numlock"), "keyboard", "numlock", false),
+  local section = SECTIONS[currentSection]
+  local content = {
+    ui.row({ align = "center", gap = 8 }, {
+      ui.label({ text = T(`sections.{section.key}`), fontSize = 18, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+      ui.button({ glyph = "close", variant = "ghost", onClick = onClose }),
     }),
   }
-
-  local header = {
-    ui.label({ text = T("title"), fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
-    ui.button({ glyph = "close", variant = "ghost", onClick = onClose }),
-  }
-
-  local banner = {}
   if not imported then
-    table.insert(banner, ui.button({ text = T("actions.import"), glyph = "download", variant = "primary", enabled = not busy, onClick = onImport }))
+    table.insert(content, ui.row({ gap = 12, align = "center", padding = 12, radius = 12, fill = "surface_variant" }, {
+      ui.label({ text = status ~= "" and status or T("status.not_imported"), color = statusIsError and "error" or "on_surface", flexGrow = 1, maxLines = 3 }),
+      ui.button({ text = T("actions.import"), glyph = "download", variant = "primary", enabled = not busy, onClick = onImport }),
+    }))
   end
+  table.insert(content, ui.scroll({ flexGrow = 1, gap = 6 }, section.rows()))
 
-  local footer = ui.row({ gap = 8, align = "center" }, {
-    ui.button({ text = previewRunning and T("actions.stop_preview") or T("actions.preview"), glyph = "eye", variant = "outline", onClick = onPreview }),
-    ui.spacer({ flexGrow = 1 }),
+  local footerText = imported and status or ""
+  table.insert(content, ui.row({ gap = 8, align = "center" }, {
+    ui.label({ text = footerText, color = statusIsError and "error" or "on_surface_variant", flexGrow = 1, maxLines = 2 }),
     ui.button({ text = T("actions.revert"), variant = "ghost", enabled = imported and dirty and not busy, onClick = onRevert }),
     ui.button({ text = T("actions.save"), glyph = "device-floppy", variant = "primary", enabled = imported and dirty and not busy, onClick = onSave }),
-  })
+  }))
 
-  local children = { ui.row({ align = "center", gap = 8 }, header) }
-  if status ~= "" then
-    table.insert(children, ui.label({ text = status, color = statusIsError and "error" or "on_surface_variant", maxLines = 4 }))
-  end
-  for _, b in ipairs(banner) do
-    table.insert(children, b)
-  end
-  table.insert(children, ui.scroll({ flexGrow = 1, gap = 12 }, body))
-  table.insert(children, ui.label({ text = T("hints.preview"), color = "on_surface_variant", maxLines = 2 }))
-  table.insert(children, footer)
-
-  panel.render(ui.column({ flexGrow = 1, gap = 12 }, children))
+  panel.render(ui.row({ flexGrow = 1, gap = 16 }, {
+    ui.column({ width = 230, gap = 4, padding = 8, radius = 12, fill = "surface_variant" }, nav),
+    ui.column({ flexGrow = 1, gap = 12 }, content),
+  }))
 end
 
 -- IPC, e.g. noctalia msg plugin kabronius/greeter-settings:panel all set clock.position=top-center
 --   set <section.key>=<value>   value "" removes the key; true/false/numbers keep their type
+--   section <login|appearance|wallpaper|clock|outputs|input>
 --   import | save | preview | revert
 function onIpc(event, payload)
-  if event == "set" then
+  if event == "section" then
+    for index, entry in ipairs(SECTIONS) do
+      if entry.key == payload then
+        currentSection = index
+        render()
+      end
+    end
+  elseif event == "set" then
     local path, raw = (payload or ""):match("^%s*([^=]-)%s*=%s*(.-)%s*$")
     local sectionName, key = (path or ""):match("^(.*)%.([^%.]+)$")
     if sectionName == nil then
@@ -576,9 +686,14 @@ end
 
 function onOpen(_context)
   loadWorkingCopy()
+  loadLists()
   if not noctalia.fileExists(BIN .. "/noctalia-greeter") then
     setStatus(T("status.missing_greeter", { dir = BIN }), true)
+  elseif not imported and not importAttempted then
+    -- First open: read the installed file straight away instead of waiting for a click.
+    importAttempted = true
+    onImport()
+    return
   end
-  loadLists()
   render()
 end
