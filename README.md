@@ -88,6 +88,24 @@ noctalia msg panel-toggle kabronius/greeter-settings:panel
 Requirements: Noctalia Greeter installed, Python 3.11 or newer (`tomllib`), and a Polkit
 authentication agent for `pkexec` (Noctalia's own: **Settings → Security → Polkit Agent**).
 
+### Preview window size
+
+The preview is a nested wlroots compositor; it appears as an ordinary window with app id `wlroots`
+and asks for a 1280×720 output. A tiling compositor places it like any new window, so on niri it opens
+as a narrow column next to the others, and a floating 1280×720 window does not fit a portrait monitor.
+A full-width column fits every monitor and looks like the real login screen. On niri:
+
+```kdl
+// Noctalia Greeter preview (Greeter Settings plugin): the nested wlroots compositor.
+window-rule {
+  match app-id="^wlroots$"
+  default-column-width { proportion 1.0; }
+  open-focused true
+}
+```
+
+The rule matches every nested wlroots compositor, not only the preview.
+
 ## Plugin settings
 
 | Key | Default | Purpose |
@@ -134,6 +152,7 @@ Checked with Noctalia Shell 5.0.1 and Noctalia Greeter 1.7.0 on Ubuntu 24.04:
   TOML with mode `0640`;
 - preview window reflects unsaved changes (clock position, hidden logo, default session) and closes
   on the second request.
+- with the niri rule above, the preview fills a 1080×1920 portrait monitor as a single column.
 
 Not exercised: a save into `/var/lib/noctalia-greeter` through `pkexec` (the install step was tested
 with `privilege_command = env` only), and the current-wallpaper button.
