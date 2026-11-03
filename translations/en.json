@@ -121,10 +121,6 @@
       "label": "Greeter binaries",
       "description": "Directory with noctalia-greeter and noctalia-greeter-compositor"
     },
-    "state_dir": {
-      "label": "Greeter state directory",
-      "description": "Directory holding greeter.toml"
-    },
     "privilege_command": {
       "label": "Privilege command",
       "description": "Runs the read and install steps as root (words split on spaces)"

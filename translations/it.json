@@ -121,10 +121,6 @@
       "label": "Programmi del greeter",
       "description": "Cartella con noctalia-greeter e noctalia-greeter-compositor"
     },
-    "state_dir": {
-      "label": "Cartella di stato del greeter",
-      "description": "Cartella che contiene greeter.toml"
-    },
     "privilege_command": {
       "label": "Comando di privilegio",
       "description": "Esegue lettura e installazione come root (parole separate da spazi)"

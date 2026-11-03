@@ -10,7 +10,9 @@
 -- Lines the panel does not manage (comments, palettes, other keys) are kept verbatim.
 
 local BIN = noctalia.getConfig("greeter_bin_dir")
-local STATE = noctalia.getConfig("state_dir")
+-- Fixed, like in greeter_helper.py: the privileged side never takes it from settings.
+local STATE = "/var/lib/noctalia-greeter"
+local HELPER = (noctalia.pluginDir() or ".") .. "/greeter_helper.py"
 local PRIVILEGE = noctalia.getConfig("privilege_command") or "pkexec"
 local HOME = noctalia.getenv("HOME") or ""
 local USER = noctalia.getenv("USER") or ""
@@ -128,7 +130,11 @@ local function loadWorkingCopy()
   dirty = false
 end
 
+-- Same list as greeter_helper.py.
+local IMAGE_EXTENSIONS = { jpg = true, jpeg = true, png = true, webp = true, jxl = true, bmp = true }
+
 -- Wallpaper outside the state dir: _greetd cannot read the user's home, so copy it on save.
+-- Returns the source path and its name in the state dir, or nil plus an error message.
 local function wallpaperCopy()
   local path = values["appearance.wallpaper.path"]
   if type(path) ~= "string" or path == "" or path:sub(1, 6) == "color:" then
@@ -137,8 +143,11 @@ local function wallpaperCopy()
   if path:sub(1, #STATE + 1) == STATE .. "/" then
     return nil, nil
   end
-  local ext = path:match("%.([%w]+)$") or "img"
-  return path, `wallpaper-custom.{ext:lower()}`
+  local ext = (path:match("%.([%w]+)$") or ""):lower()
+  if not IMAGE_EXTENSIONS[ext] then
+    return nil, nil, `unsupported wallpaper type '.{ext}'`
+  end
+  return path, `wallpaper-custom.{ext}`
 end
 
 local function renderDocText(forInstall)
@@ -226,8 +235,7 @@ function onImport()
   busy = true
   setStatus(T("status.saving"))
   render()
-  local script = 'f="$1/greeter.toml"; if [ -f "$f" ]; then cat "$f"; else exit 3; fi'
-  noctalia.runAsync(privileged({ "/bin/sh", "-c", script, "greeter-settings", STATE }), function(result)
+  noctalia.runAsync(privileged({ "/usr/bin/python3", "-I", HELPER, "read" }), function(result)
     busy = false
     if result.exitCode == 0 then
       noctalia.mkdirAll(dataDir)
@@ -250,6 +258,12 @@ function onSave()
   if busy or not imported then
     return
   end
+  local _, _, wallpaperError = wallpaperCopy()
+  if wallpaperError ~= nil then
+    setStatus(T("status.save_failed", { error = wallpaperError }), true)
+    render()
+    return
+  end
   local text = renderDocText(true)
   noctalia.mkdirAll(dataDir)
   local ok, err = noctalia.writeFile(pendingPath, text)
@@ -270,16 +284,12 @@ function onSave()
       render()
       return
     end
-    local wallSrc, wallName = wallpaperCopy()
-    local script = [[
-set -eu
-src=$1; dir=$2; wsrc=$3; wname=$4
-owner=$(stat -c %U "$dir"); group=$(stat -c %G "$dir")
-if [ -n "$wsrc" ]; then install -o "$owner" -g "$group" -m 0640 "$wsrc" "$dir/$wname"; fi
-if [ -f "$dir/greeter.toml" ]; then cp -p "$dir/greeter.toml" "$dir/greeter.toml.bak"; fi
-install -o "$owner" -g "$group" -m 0640 "$src" "$dir/greeter.toml"
-]]
-    local argv = privileged({ "/bin/sh", "-c", script, "greeter-settings", pendingPath, STATE, wallSrc or "", wallName or "" })
+    -- greeter_helper.py re-validates everything: it runs as root and trusts none of this.
+    local wallSrc = wallpaperCopy()
+    local argv = privileged({ "/usr/bin/python3", "-I", HELPER, "install", pendingPath })
+    if wallSrc ~= nil then
+      table.insert(argv, wallSrc)
+    end
     noctalia.runAsync(argv, function(result)
       busy = false
       if result.exitCode == 0 then
@@ -680,6 +690,16 @@ function onIpc(event, payload)
     local sectionName, key = (path or ""):match("^(.*)%.([^%.]+)$")
     if sectionName == nil then
       noctalia.log("greeter-settings: set expects section.key=value, got " .. tostring(payload))
+      return
+    end
+    local managed = false
+    for _, f in ipairs(FIELDS) do
+      if f[1] == sectionName and f[2] == key then
+        managed = true
+      end
+    end
+    if not managed then
+      noctalia.log("greeter-settings: set refuses unmanaged key " .. path)
       return
     end
     local value = nil

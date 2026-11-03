@@ -24,13 +24,6 @@ description_key = "settings.greeter_bin_dir.description"
 default = "/opt/noctalia-greeter/bin"
 
 [[setting]]
-key = "state_dir"
-type = "string"
-label_key = "settings.state_dir.label"
-description_key = "settings.state_dir.description"
-default = "/var/lib/noctalia-greeter"
-
-[[setting]]
 key = "privilege_command"
 type = "string"
 label_key = "settings.privilege_command.label"

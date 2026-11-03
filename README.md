@@ -63,8 +63,29 @@ The rule matches every nested wlroots compositor, not only the preview.
 | Key | Default | Purpose |
 | --- | --- | --- |
 | `greeter_bin_dir` | `/opt/noctalia-greeter/bin` | Directory with `noctalia-greeter` and `noctalia-greeter-compositor`; `/usr/bin` for distribution packages |
-| `state_dir` | `/var/lib/noctalia-greeter` | Directory holding `greeter.toml` |
-| `privilege_command` | `pkexec` | Command prefix for the import and install steps, split on spaces (for example `run0`) |
+| `privilege_command` | `pkexec` | Command prefix that runs `greeter_helper.py` as root, split on spaces (for example `run0`) |
+
+The state directory is fixed at `/var/lib/noctalia-greeter`, the greeter's default; it is deliberately
+not a setting (see [Security](#security)).
+
+## Security
+
+Reading and writing `greeter.toml` needs root, so the panel runs `greeter_helper.py` through
+`privilege_command`. The helper treats both the panel's arguments and the contents of the state
+directory as untrusted: the desktop session may be running other code as the same user, and the state
+directory belongs to greetd's user, which handles input before anyone logs in.
+
+| Risk | Handling in `greeter_helper.py` |
+| --- | --- |
+| Writing outside the greeter's directory | The state directory is hard-coded and must be owned by the `[default_session].user` of `/etc/greetd/config.toml` and not be world-writable |
+| Symlinks or swapped files in the state directory | Files there are opened with `O_NOFOLLOW` relative to a directory fd and replaced with `rename(2)` from a root-only staging directory on the same filesystem; a symlinked `greeter.toml` is refused, a symlinked backup is replaced, never written through |
+| Reading files the user may not read | Inputs must be absolute paths to regular files (no symlinks) owned by the calling user (`PKEXEC_UID`/`SUDO_UID`); a wallpaper may also be any world-readable file, never a root-only one |
+| Planting non-image files | The wallpaper must end in `jpg`, `jpeg`, `png`, `webp`, `jxl` or `bmp` and is always installed as `wallpaper-custom.<ext>` |
+| Malformed or swapped configuration | The TOML is parsed by the helper itself, after the last moment the caller could change it |
+
+The panel's `set` IPC command accepts only the keys the panel manages, so a script cannot prepare
+settings such as `[auth] allow_empty_password` for the user to save unknowingly. A save still asks
+for the administrator password every time.
 
 ## IPC
 
@@ -81,7 +102,8 @@ noctalia msg plugin $P all preview                         # again to close it
 noctalia msg plugin $P all revert
 ```
 
-`true`/`false` and numbers keep their TOML type; anything else is written as a string.
+`set` accepts only the keys listed in the panel; `true`/`false` and numbers keep their TOML type,
+anything else is written as a string.
 
 ## Tests
 
@@ -90,16 +112,21 @@ comments and unmanaged sections, blank-line layout, string escaping and byte-ide
 needs a Luau interpreter whose `require` resolves paths relative to the requiring file; the edited
 document it prints last can be checked with `python3 -c "import tomllib, sys; tomllib.load(sys.stdin.buffer)"`.
 
+`tests/helper_test.sh` runs `greeter_helper.py` unprivileged against a temporary state directory and
+checks the attacks listed under [Security]: symlinked `greeter.toml`, backup, state directory, input
+and wallpaper, inputs not owned by the caller, relative paths, invalid TOML and non-image wallpapers
+(19 checks). The ownership check on the state directory runs only as root and is not covered.
+
 ## Verification status
 
 Checked with Noctalia Shell 5.0.1 and Noctalia Greeter 1.7.0 on Ubuntu 24.04:
 
-- module tests: 20/20;
+- module tests: 20/20; helper tests: 19/19;
 - panel loads, lists sessions, users, outputs and cursor themes, and renders imported values in all
   six sections;
 - import of the installed `/var/lib/noctalia-greeter/greeter.toml` through `pkexec` and the Noctalia
   Polkit agent;
-- import, edit and save through IPC against a test state directory (`privilege_command = env`): keys
+- import, edit and save through IPC and `greeter_helper.py` against a test state directory (`privilege_command = env NOCTALIA_GREETER_STATE_DIR=…`), including a refused `set` of an unmanaged key: keys
   replaced, removed and added, palette and comments preserved, `greeter.toml.bak` kept, result valid
   TOML with mode `0640`;
 - preview window reflects unsaved changes (clock position, hidden logo, default session) and closes
