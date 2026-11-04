@@ -7,7 +7,7 @@
 
 id = "kabronius/greeter-settings"
 name = "Greeter Settings"
-version = "1.0.0"
+version = "1.1.0"
 plugin_api = 27
 author = "kabronius"
 license = "Apache-2.0"

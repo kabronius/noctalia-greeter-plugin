@@ -40,7 +40,13 @@
       "cursor_size": "Cursor size",
       "keyboard_layout": "Keyboard layout",
       "keyboard_variant": "Variant",
-      "numlock": "Num Lock on"
+      "numlock": "Num Lock on",
+      "per_output": "Per-monitor settings",
+      "mode": "Resolution",
+      "refresh": "Refresh rate",
+      "scale": "Scale",
+      "transform": "Rotation",
+      "position": "Position"
     },
     "hints": {
       "synced": "\"Synced\" uses the colors copied from Noctalia with Settings → Security → Greeter → Sync Now.",
@@ -52,7 +58,9 @@
       "font": "Fontconfig family; empty keeps the synced or built-in font.",
       "color": "Background color when no image is set, or around a fitted image.",
       "output": "Default shows the login on every monitor.",
-      "layout": "XKB layouts, comma-separated (us,it)."
+      "layout": "XKB layouts, comma-separated (us,it).",
+      "per_output": "Default leaves the native mode to the greeter and position, scale and rotation to Sync.",
+      "position": "x,y in logical pixels, as in the session."
     },
     "actions": {
       "save": "Save",
@@ -60,7 +68,9 @@
       "stop_preview": "Close preview",
       "import": "Import current configuration",
       "revert": "Discard changes",
-      "current_wallpaper": "Use the current wallpaper"
+      "current_wallpaper": "Use the current wallpaper",
+      "copy_session": "Copy from session",
+      "clear_outputs": "Remove per-monitor settings"
     },
     "status": {
       "loading": "Loading…",
@@ -75,7 +85,9 @@
       "invalid": "Generated file is not valid TOML: {error}",
       "preview_running": "Preview running in a window.",
       "preview_failed": "Preview could not start: {error}",
-      "missing_greeter": "Noctalia Greeter not found in {dir}."
+      "missing_greeter": "Noctalia Greeter not found in {dir}.",
+      "copied": "Monitors copied from the current session; save to apply them.",
+      "no_heads": "Monitor list unavailable: {error}"
     },
     "default_with": "Default ({value})",
     "values": {
@@ -110,6 +122,16 @@
         "stretch": "Stretch",
         "repeat": "Tile",
         "span": "Span across monitors"
+      },
+      "transform": {
+        "normal": "None",
+        "90": "90°",
+        "180": "180°",
+        "270": "270°",
+        "flipped": "Flipped",
+        "flipped-90": "Flipped, 90°",
+        "flipped-180": "Flipped, 180°",
+        "flipped-270": "Flipped, 270°"
       }
     }
   },

@@ -40,6 +40,31 @@ noctalia msg panel-toggle kabronius/greeter-settings:panel
 Requirements: Noctalia Greeter installed, Python 3.11 or newer (`tomllib`), and a Polkit
 authentication agent for `pkexec` (Noctalia's own: **Settings → Security → Polkit Agent**).
 
+### Per-monitor settings
+
+The **Monitors** section shows one card per display of the running session, with resolution, refresh
+rate, scale, rotation and position. They are written to the `[output]` maps `modes`, `refresh_rate`,
+`scales`, `transforms` and `layout`, keyed by connector name; entries keyed by a stable identifier
+are matched and kept. **Default** removes the display's entry: the greeter then uses the EDID-preferred
+mode, and Sync (`sync.toml`) for position, scale and rotation. **Copy from session** fills every
+enabled display from the session; entries of displays that are not connected are kept.
+
+The list of displays and their modes comes from `noctalia-greeter outputs --json`, which needs:
+
+- Noctalia Greeter with `outputs --json` and the `[output].modes` key (fork
+  [kabronius/noctalia-greeter](https://github.com/kabronius/noctalia-greeter), branch
+  `feat/output-modes`); with an older greeter the section shows the error and only the global settings;
+- a compositor that implements `wlr-output-management` (niri, Sway, Hyprland, other wlroots-based
+  compositors).
+
+Limits:
+
+- the greeter selects only modes the display advertises over DRM; a custom mode of the session (niri
+  `mode custom=true`) falls back to the preferred mode, so the logical size of that display can
+  differ from the session's;
+- choosing a refresh rate for one display turns a global numeric `refresh_rate` into the per-output
+  map.
+
 ### Preview window size
 
 The preview is a nested wlroots compositor; it appears as an ordinary window with app id `wlroots`
@@ -95,6 +120,7 @@ The open panel accepts commands, useful for scripts:
 P=kabronius/greeter-settings:panel
 noctalia msg plugin $P all section clock                   # login, appearance, wallpaper, clock, outputs, input
 noctalia msg plugin $P all import
+noctalia msg plugin $P all copy-session                    # per-monitor settings from the session
 noctalia msg plugin $P all set clock.position=top-center   # "key=" removes the key
 noctalia msg plugin $P all set appearance.hide_logo=true
 noctalia msg plugin $P all save
@@ -112,6 +138,10 @@ comments and unmanaged sections, blank-line layout, string escaping and byte-ide
 needs a Luau interpreter whose `require` resolves paths relative to the requiring file; the edited
 document it prints last can be checked with `python3 -c "import tomllib, sys; tomllib.load(sys.stdin.buffer)"`.
 
+`tests/output_maps_test.luau` covers the per-output maps: parsing, lookup by connector or stable
+identifier (also with colons), replacing, adding and removing entries, sizes, positions and number
+formatting (24 checks). It runs with the same interpreter.
+
 `tests/helper_test.sh` runs `greeter_helper.py` unprivileged against a temporary state directory and
 checks the attacks listed under [Security]: symlinked `greeter.toml`, backup, state directory, input
 and wallpaper, inputs not owned by the caller, relative paths, invalid TOML and non-image wallpapers
@@ -121,7 +151,7 @@ and wallpaper, inputs not owned by the caller, relative paths, invalid TOML and 
 
 Checked with Noctalia Shell 5.0.1 and Noctalia Greeter 1.7.0 on Ubuntu 24.04:
 
-- module tests: 20/20; helper tests: 19/19;
+- module tests: 20/20 and 24/24; helper tests: 19/19;
 - panel loads, lists sessions, users, outputs and cursor themes, and renders imported values in all
   six sections;
 - import of the installed `/var/lib/noctalia-greeter/greeter.toml` through `pkexec` and the Noctalia
@@ -132,6 +162,11 @@ Checked with Noctalia Shell 5.0.1 and Noctalia Greeter 1.7.0 on Ubuntu 24.04:
 - preview window reflects unsaved changes (clock position, hidden logo, default session) and closes
   on the second request.
 - with the niri rule above, the preview fills a 1080×1920 portrait monitor as a single column.
+- Monitors section with the `feat/output-modes` greeter on niri (three displays, one rotated, one
+  with a custom mode): cards list the advertised modes; **Copy from session** writes `modes`,
+  `refresh_rate`, `scales`, `transforms` and `layout`, and the preview compositor reads the `modes`
+  map.
 
 Not exercised: a save into `/var/lib/noctalia-greeter` through `pkexec` (the install step was tested
-with `privilege_command = env` only), and the current-wallpaper button.
+with `privilege_command = env` only), the current-wallpaper button, and mode selection on real DRM
+outputs at the login screen.

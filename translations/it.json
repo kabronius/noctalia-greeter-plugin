@@ -40,7 +40,13 @@
       "cursor_size": "Dimensione del cursore",
       "keyboard_layout": "Layout di tastiera",
       "keyboard_variant": "Variante",
-      "numlock": "Bloc Num attivo"
+      "numlock": "Bloc Num attivo",
+      "per_output": "Impostazioni per monitor",
+      "mode": "Risoluzione",
+      "refresh": "Frequenza",
+      "scale": "Scala",
+      "transform": "Rotazione",
+      "position": "Posizione"
     },
     "hints": {
       "synced": "\"Synced\" usa i colori copiati da Noctalia con Impostazioni → Security → Greeter → Sync Now.",
@@ -52,7 +58,9 @@
       "font": "Nome fontconfig; vuoto lascia il font sincronizzato o integrato.",
       "color": "Colore di sfondo senza immagine, o attorno a un'immagine adattata.",
       "output": "Predefinito mostra il login su tutti i monitor.",
-      "layout": "Layout XKB separati da virgole (us,it)."
+      "layout": "Layout XKB separati da virgole (us,it).",
+      "per_output": "Predefinito lascia al greeter la modalità nativa e a Sync posizione, scala e rotazione.",
+      "position": "x,y in pixel logici, come nella sessione."
     },
     "actions": {
       "save": "Salva",
@@ -60,7 +68,9 @@
       "stop_preview": "Chiudi anteprima",
       "import": "Importa la configurazione attuale",
       "revert": "Annulla modifiche",
-      "current_wallpaper": "Usa lo sfondo attuale"
+      "current_wallpaper": "Usa lo sfondo attuale",
+      "copy_session": "Copia dalla sessione",
+      "clear_outputs": "Togli le impostazioni per monitor"
     },
     "status": {
       "loading": "Caricamento…",
@@ -75,7 +85,9 @@
       "invalid": "Il file generato non è TOML valido: {error}",
       "preview_running": "Anteprima aperta in una finestra.",
       "preview_failed": "Impossibile avviare l'anteprima: {error}",
-      "missing_greeter": "Noctalia Greeter non trovato in {dir}."
+      "missing_greeter": "Noctalia Greeter non trovato in {dir}.",
+      "copied": "Monitor copiati dalla sessione attuale; salva per applicarli.",
+      "no_heads": "Elenco dei monitor non disponibile: {error}"
     },
     "default_with": "Predefinito ({value})",
     "values": {
@@ -110,6 +122,16 @@
         "stretch": "Allunga",
         "repeat": "Affianca",
         "span": "Su tutti i monitor"
+      },
+      "transform": {
+        "normal": "Nessuna",
+        "90": "90°",
+        "180": "180°",
+        "270": "270°",
+        "flipped": "Specchiata",
+        "flipped-90": "Specchiata, 90°",
+        "flipped-180": "Specchiata, 180°",
+        "flipped-270": "Specchiata, 270°"
       }
     }
   },

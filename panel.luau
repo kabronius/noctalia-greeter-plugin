@@ -38,6 +38,7 @@ local function T(key, subst)
 end
 
 local TOML = require("./greeter_toml.luau")
+local Maps = require("./output_maps.luau")
 local doc = { lines = {} }
 
 -- ── Managed fields ───────────────────────────────────────────────────────────────────
@@ -46,6 +47,8 @@ local lists = {
   sessions = {},
   users = {},
   outputs = {},
+  heads = {}, -- `noctalia-greeter outputs --json`: displays of this session with their modes
+  headsError = nil,
   cursors = {},
   schemes = { "Synced", "Noctalia", "Ayu", "Catppuccin", "Dracula", "Eldritch", "Gruvbox", "Kanagawa", "Nord", "Rosé Pine", "Tokyo-Night" },
   themeModes = { "dark", "light" },
@@ -54,6 +57,8 @@ local lists = {
   clockPositions = { "above-panel", "top-left", "top-center", "top-right", "bottom-left", "bottom-center", "bottom-right" },
   fillModes = { "crop", "fit", "center", "stretch", "repeat", "span" },
   cursorSizes = { 16, 24, 32, 48, 64 },
+  scales = { 1, 1.25, 1.5, 1.75, 2, 2.5, 3 },
+  transforms = { "normal", "90", "180", "270", "flipped", "flipped-90", "flipped-180", "flipped-270" },
 }
 
 -- section, key: TOML location. Values hold the decoded value or nil (key absent).
@@ -76,6 +81,11 @@ local FIELDS = {
   { "clock", "time_format" },
   { "clock", "date_format" },
   { "output", "name" },
+  { "output", "layout" },
+  { "output", "modes" },
+  { "output", "refresh_rate" },
+  { "output", "scales" },
+  { "output", "transforms" },
   { "idle", "timeout" },
   { "cursor", "theme" },
   { "cursor", "size" },
@@ -185,6 +195,14 @@ local function linesOf(text)
   return out
 end
 
+local function lastLine(text)
+  local last = ""
+  for line in (text or ""):gmatch("[^\n]+") do
+    last = line
+  end
+  return last
+end
+
 local render -- forward
 
 local function loadLists()
@@ -194,6 +212,17 @@ local function loadLists()
   end, 10000)
   noctalia.runAsync({ BIN .. "/noctalia-greeter", "outputs" }, function(result)
     lists.outputs = linesOf(result.stdout)
+    render()
+  end, 10000)
+  noctalia.runAsync({ BIN .. "/noctalia-greeter", "outputs", "--json" }, function(result)
+    local ok, heads = pcall(noctalia.json.decode, result.stdout or "")
+    if result.exitCode == 0 and ok and type(heads) == "table" then
+      lists.heads = heads
+      lists.headsError = nil
+    else
+      lists.heads = {}
+      lists.headsError = lastLine(result.stderr) ~= "" and lastLine(result.stderr) or `exit {result.exitCode}`
+    end
     render()
   end, 10000)
 
@@ -222,14 +251,6 @@ local function loadLists()
 end
 
 -- ── Actions ──────────────────────────────────────────────────────────────────────────
-
-local function lastLine(text)
-  local last = ""
-  for line in (text or ""):gmatch("[^\n]+") do
-    last = line
-  end
-  return last
-end
 
 function onImport()
   busy = true
@@ -544,6 +565,255 @@ local function minutes(v)
   return v >= 60 and string.format("%d min %02d s", v // 60, v % 60) or `{v} s`
 end
 
+-- ── Monitors ─────────────────────────────────────────────────────────────────────────
+-- Per-output settings live in the [output] maps (layout, modes, refresh_rate, scales,
+-- transforms), keyed by connector name or stable identifier. "Default" removes the output's
+-- entry, so the greeter falls back to Sync (layout, scale, rotation) or the EDID mode.
+
+local OUTPUT_MAPS = { "layout", "modes", "refresh_rate", "scales", "transforms" }
+
+local function headNames(head)
+  return { head.name, head.identifier }
+end
+
+local function headTitle(head)
+  local parts = {}
+  for _, part in ipairs({ head.make, head.model }) do
+    if type(part) == "string" and part ~= "" and part ~= "Unknown" then
+      table.insert(parts, part)
+    end
+  end
+  return #parts > 0 and `{table.concat(parts, " ")} · {head.name}` or head.name
+end
+
+-- The map's text, or nil. A numeric refresh_rate is the global form, not a map.
+local function mapText(key)
+  local text = values[id("output", key)]
+  return type(text) == "string" and text or nil
+end
+
+local function mapValue(key, head)
+  return Maps.get(mapText(key), headNames(head))
+end
+
+local function setMapValue(key, head, value)
+  -- Setting one output's refresh rate replaces a global numeric refresh_rate with the map.
+  change("output", key, Maps.set(mapText(key), headNames(head), value))
+end
+
+local function preferredMode(head)
+  for _, mode in ipairs(head.modes or {}) do
+    if mode.preferred then
+      return mode
+    end
+  end
+  return (head.modes or {})[1]
+end
+
+local function sizeText(mode)
+  return `{mode.width}x{mode.height}`
+end
+
+local function headSizes(head)
+  local sizes, seen = {}, {}
+  for _, mode in ipairs(head.modes or {}) do
+    local text = sizeText(mode)
+    if not seen[text] then
+      seen[text] = mode.width * mode.height
+      table.insert(sizes, text)
+    end
+  end
+  table.sort(sizes, function(a, b)
+    return seen[a] > seen[b]
+  end)
+  return sizes
+end
+
+local function headRates(head, width, height)
+  local rates, seen = {}, {}
+  for _, mode in ipairs(head.modes or {}) do
+    if mode.width == width and mode.height == height then
+      local text = Maps.formatNumber(mode.refresh)
+      if not seen[text] then
+        seen[text] = true
+        table.insert(rates, text)
+      end
+    end
+  end
+  table.sort(rates, function(a, b)
+    return tonumber(a) > tonumber(b)
+  end)
+  return rates
+end
+
+-- Select over raw values; the first entry ("Default …") picks nil. A current value missing
+-- from `choices` (written by hand) is kept as an extra entry.
+local function choiceSelect(key, current, choices, defaultText, label, onPick)
+  local options = { defaultText }
+  local keys = { false }
+  local selected = 0
+  for _, choice in ipairs(choices) do
+    table.insert(options, label(choice))
+    table.insert(keys, choice)
+    if current ~= nil and choice == current then
+      selected = #options - 1
+    end
+  end
+  if current ~= nil and selected == 0 then
+    table.insert(options, label(current))
+    table.insert(keys, current)
+    selected = #options - 1
+  end
+  return ui.select({
+    key = key,
+    options = options,
+    selectedIndex = selected,
+    enabled = editable(),
+    onChange = function(index)
+      local v = keys[(tonumber(index) or 0) + 1]
+      onPick(v ~= false and v or nil)
+    end,
+  })
+end
+
+local function hertz(text)
+  return `{text} Hz`
+end
+
+local function headCard(head)
+  local preferred = preferredMode(head)
+  local mode = mapValue("modes", head)
+  local width, height = Maps.parseSize(mode)
+  if width == nil and preferred ~= nil then
+    width, height = preferred.width, preferred.height
+  end
+  local refresh = mapValue("refresh_rate", head)
+  refresh = refresh ~= nil and Maps.formatNumber(tonumber(refresh)) or refresh
+  local scale = mapValue("scales", head)
+  scale = scale ~= nil and Maps.formatNumber(tonumber(scale)) or scale
+  local scales = {}
+  for _, s in ipairs(lists.scales) do
+    table.insert(scales, Maps.formatNumber(s))
+  end
+  local position = mapValue("layout", head)
+
+  return ui.column({ gap = 2, padding = 12, radius = 12, fill = "surface_variant" }, {
+    ui.label({ text = headTitle(head), color = "on_surface", fontWeight = "bold" }),
+    row(T("fields.mode"), nil, choiceSelect(
+      `mode-{head.name}`, mode, headSizes(head),
+      preferred ~= nil and T("default_with", { value = sizeText(preferred) }) or T("default"),
+      tostring,
+      function(v)
+        setMapValue("modes", head, v)
+      end
+    )),
+    row(T("fields.refresh"), nil, choiceSelect(
+      `refresh-{head.name}`, refresh, headRates(head, width, height), T("default"), hertz,
+      function(v)
+        setMapValue("refresh_rate", head, v)
+      end
+    )),
+    row(T("fields.scale"), nil, choiceSelect(
+      `scale-{head.name}`, scale, scales, T("default"),
+      function(v)
+        return `{v}×`
+      end,
+      function(v)
+        setMapValue("scales", head, v)
+      end
+    )),
+    row(T("fields.transform"), nil, choiceSelect(
+      `transform-{head.name}`, mapValue("transforms", head), lists.transforms, T("default"),
+      function(v)
+        return valueLabel("transform", v)
+      end,
+      function(v)
+        setMapValue("transforms", head, v)
+      end
+    )),
+    row(T("fields.position"), T("hints.position"), ui.input({
+      key = `position-{head.name}-{generation}`,
+      value = position or "",
+      placeholder = T("default"),
+      enabled = editable(),
+      onChange = function(v)
+        local x, y = Maps.parsePosition(v)
+        if v == "" or x ~= nil then
+          values[id("output", "layout")] = Maps.set(mapText("layout"), headNames(head), x ~= nil and `{x},{y}` or nil)
+          markDirty()
+        end
+      end,
+    })),
+  })
+end
+
+-- Mirrors the running session (mode, refresh, scale, rotation, position) for every enabled
+-- display. Entries of displays that are not connected now are kept.
+local function copyFromSession()
+  local maps = {}
+  for _, key in ipairs(OUTPUT_MAPS) do
+    maps[key] = mapText(key)
+  end
+  for _, head in ipairs(lists.heads) do
+    local current = head.current_mode
+    if head.enabled and type(current) == "table" then
+      local names = headNames(head)
+      maps.modes = Maps.set(maps.modes, names, sizeText(current))
+      maps.refresh_rate = Maps.set(maps.refresh_rate, names, Maps.formatNumber(current.refresh))
+      maps.scales = Maps.set(maps.scales, names, Maps.formatNumber(head.scale))
+      maps.transforms = Maps.set(maps.transforms, names, head.transform)
+      maps.layout = Maps.set(maps.layout, names, `{head.x},{head.y}`)
+    end
+  end
+  for _, key in ipairs(OUTPUT_MAPS) do
+    values[id("output", key)] = maps[key]
+  end
+  generation += 1 -- reseed the position inputs
+  dirty = true
+  setStatus(T("status.copied"))
+  render()
+end
+
+local function clearOutputMaps()
+  for _, key in ipairs(OUTPUT_MAPS) do
+    values[id("output", key)] = nil
+  end
+  generation += 1
+  dirty = true
+  setStatus(T("status.unsaved"))
+  render()
+end
+
+local function outputRows()
+  local rows = {
+    selectRow(T("fields.output_name"), T("hints.output"), "output", "name", lists.outputs, nil, nil),
+    sliderRow(T("fields.idle"), "idle", "timeout", 0, 1800, 30, minutes),
+    row(T("fields.per_output"), T("hints.per_output"), ui.row({ gap = 8, justify = "end" }, {
+      ui.button({
+        text = T("actions.copy_session"),
+        glyph = "copy",
+        variant = "outline",
+        enabled = editable() and #lists.heads > 0,
+        onClick = copyFromSession,
+      }),
+      ui.button({
+        glyph = "arrow-back-up",
+        variant = "ghost",
+        tooltip = T("actions.clear_outputs"),
+        enabled = editable(),
+        onClick = clearOutputMaps,
+      }),
+    })),
+  }
+  if lists.headsError ~= nil then
+    table.insert(rows, ui.label({ text = T("status.no_heads", { error = lists.headsError }), color = "error", maxLines = 3 }))
+  end
+  for _, head in ipairs(lists.heads) do
+    table.insert(rows, headCard(head))
+  end
+  return rows
+end
+
 local SECTIONS = {
   {
     key = "login",
@@ -599,12 +869,7 @@ local SECTIONS = {
   {
     key = "outputs",
     glyph = "device-desktop",
-    rows = function()
-      return {
-        selectRow(T("fields.output_name"), T("hints.output"), "output", "name", lists.outputs, nil, nil),
-        sliderRow(T("fields.idle"), "idle", "timeout", 0, 1800, 30, minutes),
-      }
-    end,
+    rows = outputRows,
   },
   {
     key = "input",
@@ -677,6 +942,7 @@ end
 --   set <section.key>=<value>   value "" removes the key; true/false/numbers keep their type
 --   section <login|appearance|wallpaper|clock|outputs|input>
 --   import | save | preview | revert
+--   copy-session                 per-monitor settings from the running session
 function onIpc(event, payload)
   if event == "section" then
     for index, entry in ipairs(SECTIONS) do
@@ -715,6 +981,8 @@ function onIpc(event, payload)
     onPreview()
   elseif event == "revert" then
     onRevert()
+  elseif event == "copy-session" then
+    copyFromSession()
   end
 end
 
