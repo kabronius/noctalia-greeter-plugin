@@ -190,7 +190,9 @@ Checked with Noctalia Shell 5.0.1 and Noctalia Greeter 1.7.0 on Ubuntu 24.04:
   with a custom mode): cards list the advertised modes; **Copy from session** writes `modes`,
   `refresh_rate`, `scales`, `transforms` and `layout`, and the preview compositor reads the `modes`
   map.
+- save into `/var/lib/noctalia-greeter` through `pkexec` with the per-monitor maps above; at the next
+  login the greeter ran the rotated 4K display at 1920×1080 next to the others, with no overlap;
+- **Sync → Enable** installs the Polkit rule through `pkexec`; afterwards Noctalia's greeter sync runs
+  on wallpaper changes without a password.
 
-Not exercised: a save into `/var/lib/noctalia-greeter` through `pkexec` (the install step was tested
-with `privilege_command = env` only), the current-wallpaper button, and mode selection on real DRM
-outputs at the login screen.
+Not exercised: the current-wallpaper button.
