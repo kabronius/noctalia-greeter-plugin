@@ -72,4 +72,21 @@ expect "read" 0 run read
 rm "$work/state/greeter.toml"
 expect "read without greeter.toml exits 3" 3 run read
 
+# sync-rule: the rule may only name helpers that are root-owned along their whole path.
+export NOCTALIA_GREETER_RULES_DIR="$work/rules"
+mkdir -p "$work/rules" "$work/bin"
+touch "$work/bin/noctalia-greeter-apply-appearance"
+ln -s "$work/bin/noctalia-greeter-apply-appearance" "$work/link-helper"
+trust() { python3 -I -c 'import importlib.util, sys
+spec = importlib.util.spec_from_file_location("h", sys.argv[1]); h = importlib.util.module_from_spec(spec); spec.loader.exec_module(h)
+sys.exit(0 if h.root_owned_path(sys.argv[2]) is None else 1)' "$helper" "$1"; }
+expect "root-owned path trusted" 0 trust /usr/bin/python3
+expect "user-owned helper refused" 1 trust "$work/bin/noctalia-greeter-apply-appearance"
+expect "symlink to a user-owned helper refused" 1 trust "$work/link-helper"
+expect "unknown sync-rule action refused" 2 run sync-rule enable
+printf 'old' > "$work/rules/50-noctalia-greeter-sync.rules"
+expect "sync-rule remove" 0 run sync-rule remove
+check "rule removed" test ! -e "$work/rules/50-noctalia-greeter-sync.rules"
+expect "sync-rule remove without a rule" 0 run sync-rule remove
+
 [[ $failures -eq 0 ]] || { echo "$failures check(s) failed"; exit 1; }

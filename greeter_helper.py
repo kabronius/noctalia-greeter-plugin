@@ -7,6 +7,11 @@ command) by the panel.
     greeter_helper.py install NEW_TOML [WALLPAPER]
         Install NEW_TOML as greeter.toml, keep the previous file as greeter.toml.bak and, when
         WALLPAPER is given, copy it in as wallpaper-custom.<ext>.
+    greeter_helper.py sync-rule install|remove
+        Install (or remove) a Polkit rule that lets the calling user run Noctalia's greeter
+        sync helper, noctalia-greeter-apply-appearance, through pkexec without a password while
+        in an active local session. Only helper paths owned by root along their whole path
+        are allowed, otherwise the rule would hand root to anyone who can write the helper.
 
 The caller is the desktop user and the state directory belongs to greetd's user, so neither
 is trusted:
@@ -23,6 +28,7 @@ Without root privileges (tests), NOCTALIA_GREETER_STATE_DIR may point elsewhere 
 ownership is left unchanged.
 """
 
+import json
 import os
 import pwd
 import shutil
@@ -36,6 +42,15 @@ GREETD_CONFIG = "/etc/greetd/config.toml"
 IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "jxl", "bmp"}
 MAX_TOML = 1 << 20
 MAX_IMAGE = 64 << 20
+RULES_DIR = "/etc/polkit-1/rules.d"
+RULE_NAME = "50-noctalia-greeter-sync.rules"
+# Paths Noctalia Shell runs the greeter sync helper from (it looks in /usr/bin, then
+# /usr/local/bin), plus the install location they link to.
+SYNC_HELPERS = (
+    "/usr/bin/noctalia-greeter-apply-appearance",
+    "/usr/local/bin/noctalia-greeter-apply-appearance",
+    "/opt/noctalia-greeter/bin/noctalia-greeter-apply-appearance",
+)
 
 
 def fail(message, code=1):
@@ -194,13 +209,121 @@ def command_install(new_toml, wallpaper):
         os.close(dir_fd)
 
 
+def rules_dir():
+    if not is_root():
+        return os.environ.get("NOCTALIA_GREETER_RULES_DIR") or RULES_DIR
+    return RULES_DIR
+
+
+def owner_name(uid):
+    try:
+        return pwd.getpwuid(uid).pw_name
+    except KeyError:
+        return str(uid)
+
+
+def root_owned_path(path, depth=0):
+    """Reason the path is unsafe to run as root without a password, or None. Every
+    component, from / to the file, must be owned by root and not group- or world-writable
+    (symlinks only need a root owner); a symlink is followed and its target checked too."""
+    current = "/"
+    for part in [p for p in path.split("/") if p]:
+        current = os.path.join(current, part)
+        try:
+            info = os.lstat(current)
+        except OSError as error:
+            return f"{current}: {error.strerror}"
+        if info.st_uid != 0:
+            return f"{current} is owned by {owner_name(info.st_uid)}, not root"
+        if stat.S_ISLNK(info.st_mode):
+            if depth >= 8:
+                return f"{current}: too many symlinks"
+            target = os.path.join(os.path.dirname(current), os.readlink(current))
+            rest = path[len(current):]
+            return root_owned_path(os.path.normpath(target + rest), depth + 1)
+        if info.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+            return f"{current} is writable by its group or by everyone"
+    return None
+
+
+def sync_rule_text(user, programs):
+    return (
+        "// Installed by the Greeter Settings plugin (kabronius/greeter-settings).\n"
+        "// Noctalia's greeter sync runs noctalia-greeter-apply-appearance through pkexec on every\n"
+        "// wallpaper or theme change; this user may run it without a password while in an active\n"
+        "// local session. The helper must stay root-owned along its whole path.\n"
+        "polkit.addRule(function (action, subject) {\n"
+        f"    var programs = {json.dumps(programs)};\n"
+        '    if (action.id == "org.freedesktop.policykit.exec" &&\n'
+        '        programs.indexOf(action.lookup("program")) >= 0 &&\n'
+        f"        subject.user == {json.dumps(user)} && subject.local && subject.active) {{\n"
+        "        return polkit.Result.YES;\n"
+        "    }\n"
+        "});\n"
+    )
+
+
+def command_sync_rule(action):
+    directory = rules_dir()
+    target = os.path.join(directory, RULE_NAME)
+    if action == "remove":
+        try:
+            os.unlink(target)
+        except FileNotFoundError:
+            pass
+        except OSError as error:
+            fail(f"cannot remove {target}: {error}")
+        return
+
+    try:
+        user = pwd.getpwuid(caller_uid()).pw_name
+    except KeyError:
+        fail(f"unknown caller uid {caller_uid()}")
+    if caller_uid() == 0:
+        fail("refusing a rule for root")
+    programs = []
+    problems = []
+    for path in SYNC_HELPERS:
+        if not os.path.lexists(path):
+            continue
+        problem = root_owned_path(path)
+        if problem is None:
+            programs.append(path)
+        else:
+            problems.append(problem)
+    if problems or not programs:
+        fail(problems[0] if problems else "noctalia-greeter-apply-appearance not found")
+
+    data = sync_rule_text(user, programs).encode()
+    try:
+        dir_fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    except OSError as error:
+        fail(f"cannot open {directory}: {error}")
+    try:
+        temp = f".{RULE_NAME}.{os.getpid()}"
+        fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644, dir_fd=dir_fd)
+        try:
+            os.write(fd, data)
+            os.fchmod(fd, 0o644)
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        os.replace(temp, RULE_NAME, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
+    except OSError as error:
+        fail(f"cannot write {target}: {error}")
+    finally:
+        os.close(dir_fd)
+
+
 def main(argv):
     if len(argv) == 2 and argv[1] == "read":
         command_read()
     elif len(argv) in (3, 4) and argv[1] == "install":
         command_install(argv[2], argv[3] if len(argv) == 4 else "")
+    elif len(argv) == 3 and argv[1] == "sync-rule" and argv[2] in ("install", "remove"):
+        command_sync_rule(argv[2])
     else:
-        fail("usage: greeter_helper.py read | install NEW_TOML [WALLPAPER]", 2)
+        fail("usage: greeter_helper.py read | install NEW_TOML [WALLPAPER] | sync-rule install|remove", 2)
 
 
 if __name__ == "__main__":

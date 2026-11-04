@@ -13,7 +13,8 @@
       "wallpaper": "Sfondo",
       "clock": "Orologio",
       "outputs": "Monitor",
-      "input": "Tastiera e cursore"
+      "input": "Tastiera e cursore",
+      "sync": "Sincronizzazione"
     },
     "fields": {
       "session": "Sessione predefinita",
@@ -46,7 +47,8 @@
       "refresh": "Frequenza",
       "scale": "Scala",
       "transform": "Rotazione",
-      "position": "Posizione"
+      "position": "Posizione",
+      "sync_rule": "Sincronizzazione senza password"
     },
     "hints": {
       "synced": "\"Synced\" usa i colori copiati da Noctalia con Impostazioni → Security → Greeter → Sync Now.",
@@ -60,7 +62,8 @@
       "output": "Predefinito mostra il login su tutti i monitor.",
       "layout": "Layout XKB separati da virgole (us,it).",
       "per_output": "Predefinito lascia al greeter la modalità nativa e a Sync posizione, scala e rotazione.",
-      "position": "x,y in pixel logici, come nella sessione."
+      "position": "x,y in pixel logici, come nella sessione.",
+      "sync_rule": "A ogni cambio Noctalia copia sfondo, tema e monitor nel greeter con pkexec. La regola Polkit toglie la password solo per quel programma, nella tua sessione."
     },
     "actions": {
       "save": "Salva",
@@ -70,7 +73,9 @@
       "revert": "Annulla modifiche",
       "current_wallpaper": "Usa lo sfondo attuale",
       "copy_session": "Copia dalla sessione",
-      "clear_outputs": "Togli le impostazioni per monitor"
+      "clear_outputs": "Togli le impostazioni per monitor",
+      "sync_rule_install": "Attiva",
+      "sync_rule_remove": "Disattiva"
     },
     "status": {
       "loading": "Caricamento…",
@@ -87,7 +92,10 @@
       "preview_failed": "Impossibile avviare l'anteprima: {error}",
       "missing_greeter": "Noctalia Greeter non trovato in {dir}.",
       "copied": "Monitor copiati dalla sessione attuale; salva per applicarli.",
-      "no_heads": "Elenco dei monitor non disponibile: {error}"
+      "no_heads": "Elenco dei monitor non disponibile: {error}",
+      "sync_rule_installed": "Regola installata: la sincronizzazione non chiede più la password.",
+      "sync_rule_removed": "Regola rimossa: la sincronizzazione chiede di nuovo la password.",
+      "sync_rule_failed": "Regola non modificata: {error}"
     },
     "default_with": "Predefinito ({value})",
     "values": {

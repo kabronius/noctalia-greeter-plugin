@@ -20,6 +20,9 @@ local dataDir = noctalia.pluginDataDir() or (HOME .. "/.local/state/noctalia/gre
 local workPath = dataDir .. "/greeter.toml"
 local pendingPath = dataDir .. "/greeter.toml.new"
 local previewDir = dataDir .. "/preview"
+-- /etc/polkit-1/rules.d is not readable by the desktop user: the panel remembers the last
+-- install or removal it did itself.
+local syncRuleMarker = dataDir .. "/sync-rule.installed"
 
 -- argv prefix that runs a command as root, from the privilege_command setting.
 local function privileged(argv)
@@ -327,6 +330,46 @@ function onSave()
       render()
     end, 60000)
   end, 10000)
+end
+
+-- Polkit rule for Noctalia's greeter sync (see greeter_helper.py sync-rule).
+local syncRuleBusy = false
+local syncRuleStatus = nil
+local syncRuleError = false
+
+local function syncRuleInstalled()
+  return noctalia.fileExists(syncRuleMarker)
+end
+
+local function setSyncRule(install)
+  if syncRuleBusy then
+    return
+  end
+  syncRuleBusy = true
+  syncRuleStatus = T("status.saving")
+  syncRuleError = false
+  render()
+  local action = install and "install" or "remove"
+  noctalia.runAsync(privileged({ "/usr/bin/python3", "-I", HELPER, "sync-rule", action }), function(result)
+    syncRuleBusy = false
+    if result.exitCode == 0 then
+      noctalia.mkdirAll(dataDir)
+      if install then
+        noctalia.writeFile(syncRuleMarker, "")
+      else
+        noctalia.removeFile(syncRuleMarker)
+      end
+      syncRuleStatus = T(install and "status.sync_rule_installed" or "status.sync_rule_removed")
+    else
+      local reason = lastLine(result.stderr)
+      if reason == "" then
+        reason = result.timedOut and "timeout" or `exit {result.exitCode}`
+      end
+      syncRuleStatus = T("status.sync_rule_failed", { error = reason })
+      syncRuleError = true
+    end
+    render()
+  end, 60000)
 end
 
 function onRevert()
@@ -814,6 +857,27 @@ local function outputRows()
   return rows
 end
 
+local function syncRows()
+  local installed = syncRuleInstalled()
+  local rows = {
+    row(T("fields.sync_rule"), T("hints.sync_rule"), ui.row({ gap = 8, justify = "end" }, {
+      ui.button({
+        text = installed and T("actions.sync_rule_remove") or T("actions.sync_rule_install"),
+        glyph = installed and "lock" or "lock-open",
+        variant = installed and "outline" or "primary",
+        enabled = not syncRuleBusy,
+        onClick = function()
+          setSyncRule(not installed)
+        end,
+      }),
+    })),
+  }
+  if syncRuleStatus ~= nil then
+    table.insert(rows, ui.label({ text = syncRuleStatus, color = syncRuleError and "error" or "on_surface_variant", maxLines = 3 }))
+  end
+  return rows
+end
+
 local SECTIONS = {
   {
     key = "login",
@@ -884,6 +948,11 @@ local SECTIONS = {
       }
     end,
   },
+  {
+    key = "sync",
+    glyph = "refresh",
+    rows = syncRows,
+  },
 }
 
 render = function()
@@ -940,9 +1009,10 @@ end
 
 -- IPC, e.g. noctalia msg plugin kabronius/greeter-settings:panel all set clock.position=top-center
 --   set <section.key>=<value>   value "" removes the key; true/false/numbers keep their type
---   section <login|appearance|wallpaper|clock|outputs|input>
+--   section <login|appearance|wallpaper|clock|outputs|input|sync>
 --   import | save | preview | revert
 --   copy-session                 per-monitor settings from the running session
+--   sync-rule <install|remove>   Polkit rule for Noctalia's greeter sync without a password
 function onIpc(event, payload)
   if event == "section" then
     for index, entry in ipairs(SECTIONS) do
@@ -983,6 +1053,8 @@ function onIpc(event, payload)
     onRevert()
   elseif event == "copy-session" then
     copyFromSession()
+  elseif event == "sync-rule" and (payload == "install" or payload == "remove") then
+    setSyncRule(payload == "install")
   end
 end
 

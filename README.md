@@ -65,6 +65,26 @@ Limits:
 - choosing a refresh rate for one display turns a global numeric `refresh_rate` into the per-output
   map.
 
+### Greeter sync without a password
+
+With greeter auto sync enabled (`[shell.greeter_sync] auto_sync = true` in Noctalia's settings),
+Noctalia Shell copies wallpaper, theme and display layout to the greeter on every change by running
+`noctalia-greeter-apply-appearance` through `pkexec`, so a wallpaper rotation (Variety, slideshows)
+asks for the administrator password each time. The **Sync** section installs
+`/etc/polkit-1/rules.d/50-noctalia-greeter-sync.rules`, which allows that one program to the calling
+user, in an active local session, without authentication; **Disable** removes the file.
+
+The rule names `/usr/bin`, `/usr/local/bin` and `/opt/noctalia-greeter/bin` copies of the helper that
+exist, and only when each one, through every directory and symlink target, is owned by root and not
+writable by group or others: otherwise passwordless `pkexec` would run as root a file the user can
+replace. A greeter copied into `/opt` with the user's ownership is refused with the offending path;
+`sudo chown -R root:root /opt/noctalia-greeter` fixes it. What remains reachable without a password is
+the helper itself, which reads the staging directory in `$XDG_RUNTIME_DIR` and writes only the greeter's
+state, so the exposure is the login screen's appearance.
+
+`/etc/polkit-1/rules.d` is readable only by root and polkitd, so the panel shows the state of the last
+install or removal it made (a marker in the plugin data directory), not the file itself.
+
 ### Preview window size
 
 The preview is a nested wlroots compositor; it appears as an ordinary window with app id `wlroots`
@@ -107,6 +127,7 @@ directory belongs to greetd's user, which handles input before anyone logs in.
 | Reading files the user may not read | Inputs must be absolute paths to regular files (no symlinks) owned by the calling user (`PKEXEC_UID`/`SUDO_UID`); a wallpaper may also be any world-readable file, never a root-only one |
 | Planting non-image files | The wallpaper must end in `jpg`, `jpeg`, `png`, `webp`, `jxl` or `bmp` and is always installed as `wallpaper-custom.<ext>` |
 | Malformed or swapped configuration | The TOML is parsed by the helper itself, after the last moment the caller could change it |
+| Passwordless root through the sync rule | `sync-rule install` lists only helper paths owned by root along the whole path (symlink targets included) and not writable by group or others; the rule is limited to the calling user's active local session |
 
 The panel's `set` IPC command accepts only the keys the panel manages, so a script cannot prepare
 settings such as `[auth] allow_empty_password` for the user to save unknowingly. A save still asks
@@ -118,9 +139,10 @@ The open panel accepts commands, useful for scripts:
 
 ```sh
 P=kabronius/greeter-settings:panel
-noctalia msg plugin $P all section clock                   # login, appearance, wallpaper, clock, outputs, input
+noctalia msg plugin $P all section clock                   # login, appearance, wallpaper, clock, outputs, input, sync
 noctalia msg plugin $P all import
 noctalia msg plugin $P all copy-session                    # per-monitor settings from the session
+noctalia msg plugin $P all sync-rule install               # or remove; asks for the password once
 noctalia msg plugin $P all set clock.position=top-center   # "key=" removes the key
 noctalia msg plugin $P all set appearance.hide_logo=true
 noctalia msg plugin $P all save
@@ -144,14 +166,16 @@ formatting (24 checks). It runs with the same interpreter.
 
 `tests/helper_test.sh` runs `greeter_helper.py` unprivileged against a temporary state directory and
 checks the attacks listed under [Security]: symlinked `greeter.toml`, backup, state directory, input
-and wallpaper, inputs not owned by the caller, relative paths, invalid TOML and non-image wallpapers
-(19 checks). The ownership check on the state directory runs only as root and is not covered.
+and wallpaper, inputs not owned by the caller, relative paths, invalid TOML and non-image wallpapers; for
+`sync-rule`, it checks that user-owned helpers (also through a symlink) are refused and that removal
+works (26 checks). The ownership check on the state directory and writing into
+`/etc/polkit-1/rules.d` run only as root and are not covered.
 
 ## Verification status
 
 Checked with Noctalia Shell 5.0.1 and Noctalia Greeter 1.7.0 on Ubuntu 24.04:
 
-- module tests: 20/20 and 24/24; helper tests: 19/19;
+- module tests: 20/20 and 24/24; helper tests: 26/26;
 - panel loads, lists sessions, users, outputs and cursor themes, and renders imported values in all
   six sections;
 - import of the installed `/var/lib/noctalia-greeter/greeter.toml` through `pkexec` and the Noctalia

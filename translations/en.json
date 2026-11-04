@@ -13,7 +13,8 @@
       "wallpaper": "Wallpaper",
       "clock": "Clock",
       "outputs": "Monitors",
-      "input": "Keyboard and cursor"
+      "input": "Keyboard and cursor",
+      "sync": "Sync"
     },
     "fields": {
       "session": "Default session",
@@ -46,7 +47,8 @@
       "refresh": "Refresh rate",
       "scale": "Scale",
       "transform": "Rotation",
-      "position": "Position"
+      "position": "Position",
+      "sync_rule": "Sync without password"
     },
     "hints": {
       "synced": "\"Synced\" uses the colors copied from Noctalia with Settings → Security → Greeter → Sync Now.",
@@ -60,7 +62,8 @@
       "output": "Default shows the login on every monitor.",
       "layout": "XKB layouts, comma-separated (us,it).",
       "per_output": "Default leaves the native mode to the greeter and position, scale and rotation to Sync.",
-      "position": "x,y in logical pixels, as in the session."
+      "position": "x,y in logical pixels, as in the session.",
+      "sync_rule": "On every change Noctalia copies wallpaper, theme and displays to the greeter through pkexec. The Polkit rule skips the password for that program only, in your session."
     },
     "actions": {
       "save": "Save",
@@ -70,7 +73,9 @@
       "revert": "Discard changes",
       "current_wallpaper": "Use the current wallpaper",
       "copy_session": "Copy from session",
-      "clear_outputs": "Remove per-monitor settings"
+      "clear_outputs": "Remove per-monitor settings",
+      "sync_rule_install": "Enable",
+      "sync_rule_remove": "Disable"
     },
     "status": {
       "loading": "Loading…",
@@ -87,7 +92,10 @@
       "preview_failed": "Preview could not start: {error}",
       "missing_greeter": "Noctalia Greeter not found in {dir}.",
       "copied": "Monitors copied from the current session; save to apply them.",
-      "no_heads": "Monitor list unavailable: {error}"
+      "no_heads": "Monitor list unavailable: {error}",
+      "sync_rule_installed": "Rule installed: sync no longer asks for a password.",
+      "sync_rule_removed": "Rule removed: sync asks for a password again.",
+      "sync_rule_failed": "Rule unchanged: {error}"
     },
     "default_with": "Default ({value})",
     "values": {
