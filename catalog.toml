@@ -1,0 +1,13 @@
+# Noctalia plugin source: one [[plugin]] row per plugin subdirectory.
+# Keep it in step with the plugin's plugin.toml (version, plugin_api, description).
+
+[[plugin]]
+id = "kabronius/greeter-settings"
+name = "Greeter Settings"
+version = "1.1.0"
+author = "kabronius"
+license = "Apache-2.0"
+icon = "login"
+description = "Configure Noctalia Greeter (greeter.toml) from a panel: session, user, appearance, clock, outputs, keyboard and cursor."
+plugin_api = 27
+tags = ["greeter", "login", "settings", "system"]

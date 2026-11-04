@@ -25,11 +25,22 @@ else lives in `greeter.toml`, which normally needs a text editor and root.
 
 ## Installation
 
+The repository is a Noctalia plugin source: `catalog.toml` at the root lists the plugin, whose files
+are in `greeter-settings/`. Add it as a source and enable the plugin:
+
 ```sh
-git clone https://github.com/kabronius/noctalia-greeter-plugin.git ~/src/noctalia-greeter-plugin
-ln -s ~/src/noctalia-greeter-plugin ~/.local/share/noctalia/plugins/greeter-settings
+noctalia msg plugins source add kabronius-greeter git https://github.com/kabronius/noctalia-greeter-plugin
 noctalia msg plugins enable kabronius/greeter-settings
 ```
+
+For development, a checkout works as a `path` source and `.luau` edits hot-reload:
+
+```sh
+git clone https://github.com/kabronius/noctalia-greeter-plugin.git ~/src/noctalia-greeter-plugin
+noctalia msg plugins source add kabronius-greeter path ~/src/noctalia-greeter-plugin
+```
+
+A version change goes into both `greeter-settings/plugin.toml` and `catalog.toml`.
 
 Open the panel with the bar widget (**Settings → Bar → Add widget → Greeter Settings**) or:
 
@@ -155,16 +166,16 @@ anything else is written as a string.
 
 ## Tests
 
-`tests/greeter_toml_test.luau` covers reading, replacing, removing and adding keys, preservation of
+`greeter-settings/tests/greeter_toml_test.luau` covers reading, replacing, removing and adding keys, preservation of
 comments and unmanaged sections, blank-line layout, string escaping and byte-identical no-op edits. It
 needs a Luau interpreter whose `require` resolves paths relative to the requiring file; the edited
 document it prints last can be checked with `python3 -c "import tomllib, sys; tomllib.load(sys.stdin.buffer)"`.
 
-`tests/output_maps_test.luau` covers the per-output maps: parsing, lookup by connector or stable
+`greeter-settings/tests/output_maps_test.luau` covers the per-output maps: parsing, lookup by connector or stable
 identifier (also with colons), replacing, adding and removing entries, sizes, positions and number
 formatting (24 checks). It runs with the same interpreter.
 
-`tests/helper_test.sh` runs `greeter_helper.py` unprivileged against a temporary state directory and
+`greeter-settings/tests/helper_test.sh` runs `greeter_helper.py` unprivileged against a temporary state directory and
 checks the attacks listed under [Security]: symlinked `greeter.toml`, backup, state directory, input
 and wallpaper, inputs not owned by the caller, relative paths, invalid TOML and non-image wallpapers; for
 `sync-rule`, it checks that user-owned helpers (also through a symlink) are refused and that removal
